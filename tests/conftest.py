@@ -12,9 +12,19 @@ def gov(accounts):
     yield accounts.at("0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52", force=True)
     #yield accounts.at("0x6AFB7c9a6E8F34a3E0eC6b734942a5589A84F44C", force=True)
 
+@pytest.fixture
+def yvboost():
+    yield Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a")
 
 @pytest.fixture
-def user(accounts):
+def whale_yvboost(accounts):
+    yield accounts.at("0x25431341A5800759268a6aC1d3CD91C029D7d9CA", force=True)
+
+@pytest.fixture
+def user(accounts, yveCrv, yvboost, crv, whale_yvecrv, whale_crv, whale_yvboost):
+    yvboost.transfer(accounts[0], 500e18,{'from':whale_yvboost})
+    crv.transfer(accounts[0], 500e18,{'from':whale_crv})
+    yveCrv.transfer(accounts[0], 500e18,{'from':whale_yvecrv})
     yield accounts[0]
 
 @pytest.fixture
@@ -96,6 +106,11 @@ def sushi_swapper(trade_factory, ymechs_safe):
 def live_strat():
     live_strat = Contract('0x7fe508eE30316e3261079e2C81f4451E0445103b')
     yield live_strat
+
+@pytest.fixture
+def strategy(strategist, ZapYearnVeCRV):
+    zap = strategist.deploy(ZapYearnVeCRV)
+    yield zap
 
 @pytest.fixture
 def strategy(strategist, live_strat, 
