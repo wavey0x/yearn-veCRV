@@ -1,11 +1,22 @@
-import pytest
-from brownie import ZERO_ADDRESS, config
-from brownie import Contract, interface, StrategyProxy
+import pytest, requests
+from brownie import ZERO_ADDRESS, config, Contract, interface, StrategyProxy, web3, chain
 
 # This causes test not to re-run fixtures on each run
 @pytest.fixture(autouse=True)
 def isolation(fn_isolation):
     pass
+
+@pytest.fixture(scope="module", autouse=True)
+def tenderly_fork(web3, chain):
+    fork_base_url = "https://simulate.yearn.network/fork"
+    payload = {"network_id": str(chain.id)}
+    resp = requests.post(fork_base_url, headers={}, json=payload)
+    fork_id = resp.json()["simulation_fork"]["id"]
+    fork_rpc_url = f"https://rpc.tenderly.co/fork/{fork_id}"
+    print(fork_rpc_url)
+    tenderly_provider = web3.HTTPProvider(fork_rpc_url, {"timeout": 600})
+    web3.provider = tenderly_provider
+    print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
 
 @pytest.fixture
 def gov(accounts):
@@ -108,7 +119,7 @@ def live_strat():
     yield live_strat
 
 @pytest.fixture
-def strategy(strategist, ZapYearnVeCRV):
+def zap(strategist, ZapYearnVeCRV):
     zap = strategist.deploy(ZapYearnVeCRV)
     yield zap
 
@@ -204,6 +215,14 @@ def sushiswap_crv(accounts):
 @pytest.fixture
 def sushiswap(Contract):
     yield Contract("0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
+
+@pytest.fixture
+def pool(accounts, crv, yveCrv, user):
+    pool = Contract("0x7E46fd8a30869aa9ed55af031067Df666EfE87da")
+    yveCrv.approve(pool, 2**256-1, {'from':user})
+    crv.approve(pool, 2**256-1, {'from':user})
+    # pool.add_liquidity([100e18,100e18], 0, user, {'from':user})
+    yield pool
 
 @pytest.fixture
 def not_banteg(accounts):

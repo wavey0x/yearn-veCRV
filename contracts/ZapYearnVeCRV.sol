@@ -8,6 +8,7 @@ import {
     IERC20,
     Address
 } from "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
+
 /*
     This zap performs each of the following 3 conversions
     1) CRV -> LP -> vault deposit
@@ -56,7 +57,6 @@ contract ZapYearnVeCRV {
 
     /// @notice Convert CRV to LPs and deposit into Yearn vault to compound
     /// @dev We can assume it is always optimal to swap to yveCRV since the peg should never exceed 1:1 due to arbers minting
-    /// @dev calculate your _minOut by using: amount / pool.virtual_price() - (amount / pool.virtual_price() * slippage_tolerance)
     /// @param _amount Amount of CRV to convert
     /// @param _minOut Minimum acceptable amount of LP tokens to mint from the deposit
     /// @return uint256 Amount of yvTokens received
@@ -69,7 +69,7 @@ contract ZapYearnVeCRV {
     }
 
     /// @notice Convert yvBOOST to LP and deposit to vault
-    /// @dev calculate your _minOut by using: amount / pool.virtual_price() - (amount / pool.virtual_price() * slippage_tolerance)
+    /// @dev use the pool's virtual price to calculate your _minOut parameter.
     /// @param _amount Amount of yvBOOST to convert
     /// @param _minOut Minimum acceptable amount of LP tokens to mint from the deposit
     /// @return uint256 Amount of yvTokens received
