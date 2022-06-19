@@ -10,6 +10,6 @@ def test_zap(zap, pool, Strategy, accounts, voter, whale_crv, token, yveCrv, yvb
     zap.zapCRVtoLPVault(2e18, 0, user, {"from":user})
     zap.zapCRVtoYvBOOST(2e18, 0, user, {"from":user})
     zap.zapYvBOOSTtoLPVault(2e18, 0, user, {"from":user})
-    
+
     # pool.exchange(0,1,2e18,0,{'from':user})
     

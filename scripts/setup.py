@@ -3,6 +3,7 @@ from brownie import Contract, accounts
 def main():
     wavey = accounts.load('wavey')
     pool = Contract("0x7E46fd8a30869aa9ed55af031067Df666EfE87da",owner=wavey)
+    vault = Contract("0x2E919d27D515868f3D5Bc9110fa738f9449FC6ad", owner=wavey)
     crv = Contract(pool.coins(0),owner=wavey)
     yvecrv = Contract(pool.coins(1),owner=wavey)
     crv.approve(pool, 2**256-1)

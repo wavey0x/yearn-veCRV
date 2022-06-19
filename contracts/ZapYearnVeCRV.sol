@@ -17,13 +17,13 @@ import {
 */
 
 interface ICurve {
-    function exchange(int128 i, int128 j, uint256 dx, uint256 _min_dy) external view returns (uint256);
-    function add_liquidity(uint256[] calldata amounts, uint256 _min_mint_amount) external view returns (uint256);
+    function exchange(int128 i, int128 j, uint256 dx, uint256 _min_dy) external returns (uint256);
+    function add_liquidity(uint256[2] calldata amounts, uint256 _min_mint_amount) external returns (uint256);
 }
 
 interface IVault {
-    function withdraw(uint256 amount) external view returns (uint256);
-    function deposit(uint256 amount, address receiver) external view returns (uint256);
+    function withdraw(uint256 amount) external returns (uint256);
+    function deposit(uint256 amount, address receiver) external returns (uint256);
 }
 
 contract ZapYearnVeCRV {
@@ -49,7 +49,7 @@ contract ZapYearnVeCRV {
     /// @param _amount Amount of CRV to convert
     /// @param _minOut Minimum yveCRV out from the CRV --> yveCRV swap
     /// @return uint256 Amount of yvBOOST received
-    function zapCRVtoYvBOOST(uint256 _amount, uint256 _minOut, address _recipient) external returns(uint256) {
+    function zapCRVtoYvBOOST(uint256 _amount, uint256 _minOut, address _recipient) external returns (uint256) {
         CRV.transferFrom(msg.sender, address(this), _amount);
         uint256 amountYveCRV = pool.exchange(0, 1, _amount, _minOut);
         return yvBOOST.deposit(amountYveCRV, _recipient);
@@ -60,9 +60,9 @@ contract ZapYearnVeCRV {
     /// @param _amount Amount of CRV to convert
     /// @param _minOut Minimum acceptable amount of LP tokens to mint from the deposit
     /// @return uint256 Amount of yvTokens received
-    function zapCRVtoLPVault(uint256 _amount, uint256 _minOut, address _recipient) external returns(uint256) {
+    function zapCRVtoLPVault(uint256 _amount, uint256 _minOut, address _recipient) external returns (uint256) {
         CRV.transferFrom(msg.sender, address(this), _amount);
-        uint256[] memory amounts = new uint256[](2);
+        uint256[2] memory amounts;
         amounts[0] = _amount;
         uint256 lpAmount = lp(amounts, _minOut);
         return yvCrvYveCRV.deposit(lpAmount, _recipient);
@@ -73,10 +73,10 @@ contract ZapYearnVeCRV {
     /// @param _amount Amount of yvBOOST to convert
     /// @param _minOut Minimum acceptable amount of LP tokens to mint from the deposit
     /// @return uint256 Amount of yvTokens received
-    function zapYvBOOSTtoLPVault(uint256 _amount, uint256 _minOut, address _recipient) external returns(uint256) {
+    function zapYvBOOSTtoLPVault(uint256 _amount, uint256 _minOut, address _recipient) external returns (uint256) {
         IERC20(address(yvBOOST)).transferFrom(msg.sender, address(this), _amount);
         uint256 yveCRVBalance = yvBOOST.withdraw(_amount);
-        uint256[] memory amounts = new uint256[](2);
+        uint256[2] memory amounts;
         amounts[1] = _amount;
         uint256 lpAmount = lp(amounts, _minOut);
         return yvCrvYveCRV.deposit(lpAmount, _recipient);
@@ -86,11 +86,11 @@ contract ZapYearnVeCRV {
     /// @param _amounts Amount of yvBOOST to convert
     /// @param _minOut Minimum acceptable amount of LP tokens to mint from the deposit
     /// @return uint256 Amount of LPs minted
-    function lp(uint256[] memory _amounts, uint256 _minOut) internal returns(uint256) {
+    function lp(uint256[2] memory _amounts, uint256 _minOut) internal returns (uint256) {
         return pool.add_liquidity(_amounts, _minOut);
     }
 
-    function sweep(IERC20 _token) external returns (uint256 balance){
+    function sweep(IERC20 _token) external returns (uint256 balance) {
         balance = _token.balanceOf(address(this));
         if (balance > 0) {
             _token.safeTransfer(gov, balance);
