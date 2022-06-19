@@ -10,15 +10,17 @@ import {
 } from "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
 
 /*
-    This zap performs each of the following 3 conversions
+    This zap performs each of the following conversions
     1) CRV -> LP -> vault deposit
     2) CRV -> yvBOOST
     3) yvBOOST -> LP -> vault deposit
+    4) LP vault -> yveCRV -> yvBOOST
 */
 
 interface ICurve {
     function exchange(int128 i, int128 j, uint256 dx, uint256 _min_dy) external returns (uint256);
     function add_liquidity(uint256[2] calldata amounts, uint256 _min_mint_amount) external returns (uint256);
+    function remove_liquidity_one_coin(uint256 _token_amount, int128 i, uint256 min_amount) external returns (uint256);
 }
 
 interface IVault {
@@ -80,6 +82,18 @@ contract ZapYearnVeCRV {
         amounts[1] = _amount;
         uint256 lpAmount = lp(amounts, _minOut);
         return yvCrvYveCRV.deposit(lpAmount, _recipient);
+    }
+
+    /// @notice Convert from Curve LP yearn vault to yveCRV and then deposit to yvBOOST
+    /// @dev use the pool's virtual price to calculate your _minOut parameter.
+    /// @param _amount Amount of Curve LP yearn vault tokens
+    /// @param _minOut Minimum acceptable amount of yveCRV tokens to receive after burning LPs
+    /// @return uint256 Amount of yvBOOST tokens received
+    function zapLPVaultToYvBOOST(uint256 _amount, uint256 _minOut, address _recipient) external returns (uint256) {
+        IERC20(address(yvCrvYveCRV)).transferFrom(msg.sender, address(this), _amount);
+        uint256 lpAmount = yvCrvYveCRV.withdraw(_amount);
+        uint256 yveCRVAmount = pool.remove_liquidity_one_coin(lpAmount, 1, _minOut);
+        return yvBOOST.deposit(yveCRVAmount, _recipient);
     }
 
     /// @notice Perform single-sided LP from either CRV or yveCRV

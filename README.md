@@ -17,7 +17,6 @@
         - `vote_many` helper function added
     - Natspec added
 
-
 2. **StrategyYvBOOST.sol**
     - This strategy will be added to the yvBOOST vault and will be configured to receive all weekly 3CRV admin fees earned by Yearn's voter via the new `feeRecipient` variable in the StrategyProxy.
     - Claims are checked and made during harvest as well as via direct call from any vault managers.
@@ -30,3 +29,9 @@
     yveCrv.setProxy(strategy_proxy)
     yveCrv.setFeeDistribution(ZERO_ADDRESS)
     ```
+4. **ZapYearnVeCRV.sol**
+    - Convert between Yearn veCRV positions using the new Curve CRV/yveCRV pool.
+    1) CRV -> LP -> vault deposit
+    2) CRV -> yvBOOST
+    3) yvBOOST -> LP -> vault deposit
+    4) LP vault -> yveCRV -> yvBOOST

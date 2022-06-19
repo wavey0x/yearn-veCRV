@@ -28,6 +28,10 @@ def yvboost():
     yield Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a")
 
 @pytest.fixture
+def yvLP():
+    yield Contract("0x2E919d27D515868f3D5Bc9110fa738f9449FC6ad")
+
+@pytest.fixture
 def whale_yvboost(accounts):
     yield accounts.at("0x25431341A5800759268a6aC1d3CD91C029D7d9CA", force=True)
 
