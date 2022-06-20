@@ -4,10 +4,12 @@ import time
 
 def test_zap(zap, pool, Strategy, accounts, voter, yvLP, whale_crv, token, yveCrv, yvboost, crv, whale_yvecrv, vault, strategy, strategist, amount, user, crv3, chain, whale_3crv, gov):
     crv.approve(zap, 2**256-1, {"from": user})
+    crv.approve(pool, 2**256-1, {"from": whale_crv})
     yvboost.approve(zap, 2**256-1, {"from": user})
     yveCrv.approve(zap, 2**256-1, {"from": user})
     yvLP.approve(zap, 2**256-1, {"from": user})
     
+    chain.snapshot()
     crv_before = crv.balanceOf(user)
     yv_before = yvLP.balanceOf(user)
     print("ZAP CRV --> LP VAULT\n")
@@ -52,7 +54,10 @@ def test_zap(zap, pool, Strategy, accounts, voter, yvLP, whale_crv, token, yveCr
     assert yvboost_before < yvboost_after
     assert yvLP_after < yvLP_before
 
-    # pool.exchange(0,1,2e18,0,{'from':user})
+    chain.revert()
+
+    pool.exchange(0,1,300e18,0,{'from':whale_crv})
+    assert False
     
 def print_balances(user, yvLP, crv, yvboost, yveCrv, pool):
     print("CRV:", crv.balanceOf(user)/1e18)

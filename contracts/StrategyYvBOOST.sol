@@ -49,19 +49,25 @@ interface IBaseFee {
     function isCurrentBaseFeeAcceptable() external view returns (bool);
 }
 
+interface IVoter {
+    function strategy() external view returns (address);
+}
+
 contract Strategy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
 
     address public tradeFactory;
-    address public proxy = 0xA420A63BbEFfbda3B147d0585F1852C358e2C152;
+    address public proxy;
+    address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
     IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
     bool public shouldClaim = true;
 
     constructor(address _vault) BaseStrategy(_vault) public {
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012;
         tradeFactory = 0x7BAF843e06095f68F4990Ca50161C2C4E4e01ec6;
+        proxy = IVoter(voter).strategy();
     }
 
     function name() external view override returns (string memory) {
