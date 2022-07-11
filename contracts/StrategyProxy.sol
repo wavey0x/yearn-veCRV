@@ -30,6 +30,7 @@ contract StrategyProxy {
     using SafeMath for uint256;
     using SafeProxy for IProxy;
 
+    uint256 private constant week = 604800; // Number of seconds in a week
     IProxy public constant proxy = IProxy(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Refer to this as "voter" contract
     address public constant mintr = address(0xd061D61a4d941c39E5453435B6345Dc261C2fcE0);
     address public constant crv = address(0xD533a949740bb3306d119CC777fa900bA034cd52);
@@ -63,7 +64,9 @@ contract StrategyProxy {
     /// @param _governance Address to set as governance
     function setGovernance(address _governance) external {
         require(msg.sender == governance, "!governance");
+        require(_governance != governance, "already set");
         governance = _governance;
+        emit GovernanceSet(_governance);
     }
 
     /// @notice Set recipient of weekly 3CRV admin fees
@@ -72,7 +75,9 @@ contract StrategyProxy {
     function setFeeRecipient(address _feeRecipient) external {
         require(msg.sender == governance, "!governance");
         require(_feeRecipient != address(0), "!zeroaddress");
+        require(_feeRecipient != feeRecipient, "already set");
         feeRecipient = _feeRecipient;
+        emit FeeRecipientSet(_feeRecipient);
     }
 
     /// @notice Add strategy to a gauge
@@ -80,28 +85,36 @@ contract StrategyProxy {
     /// @param _strategy Strategy to approve on gauge
     function approveStrategy(address _gauge, address _strategy) external {
         require(msg.sender == governance, "!governance");
+        require(strategies[_gauge] != _strategy, "already approved");
         strategies[_gauge] = _strategy;
+        emit StrategyApproved(_gauge, _strategy);
     }
 
     /// @notice Clear any previously approved strategy to a gauge
     /// @param _gauge Gauge from which to remove strategy
     function revokeStrategy(address _gauge) external {
         require(msg.sender == governance, "!governance");
+        require(strategies[_gauge] != address(0), "already revoked");
         strategies[_gauge] = address(0);
+        emit StrategyRevoked(_gauge);
     }
 
     /// @notice Approve an address for voting on gauge weights
     /// @param _voter Voter to add
     function approveVoter(address _voter) external {
         require(msg.sender == governance, "!governance");
+        require(!voters[_voter], "already approved");
         voters[_voter] = true;
+        VoterApproved(_voter);
     }
 
     /// @notice Remove ability to vote on gauge weights
     /// @param _voter Voter to remove
     function revokeVoter(address _voter) external {
         require(msg.sender == governance, "!governance");
+        require(voters[_voter], "already revoked");
         voters[_voter] = false;
+        emit VoterRevoked(_voter);
     }
 
     /// @notice Lock CRV into veCRV contract
@@ -161,7 +174,6 @@ contract StrategyProxy {
     /// @param _gauge The gauge from which to withdraw
     /// @param _token The LP token to withdraw from gauge
     function withdrawAll(address _gauge, address _token) external returns (uint256) {
-        require(strategies[_gauge] == msg.sender, "!strategy");
         return withdraw(_gauge, _token, balanceOf(_gauge));
     }
 
@@ -196,7 +208,7 @@ contract StrategyProxy {
     /// @param _recipient The address to which we transfer 3CRV
     function claim(address _recipient) external {
         require(msg.sender == feeRecipient, "!approved");
-        if (now < lastTimeCursor.add(604800)) return;
+        if (now < lastTimeCursor.add(week)) return;
 
         address p = address(proxy);
         feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
@@ -213,7 +225,7 @@ contract StrategyProxy {
     /// @dev Admin fees become available every Thursday, so we run this expensive logic only once per week.
     /// @return bool True if enough time has passed
     function claimable() external view returns (bool) {
-        if (now < lastTimeCursor.add(604800)) return false;
+        if (now < lastTimeCursor.add(week)) return false;
         return true;
     }
 

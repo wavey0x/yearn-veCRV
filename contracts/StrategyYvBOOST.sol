@@ -90,7 +90,7 @@ contract Strategy is BaseStrategy {
         require(tradeFactory != address(0), "!tf");
  
         if (_debtOutstanding > 0) {
-            (_debtPayment, _loss) = liquidatePosition(_debtOutstanding);
+            (_debtPayment, ) = liquidatePosition(_debtOutstanding);
         }
 
         if (shouldClaim && IVoterProxy(proxy).claimable()) {
@@ -129,11 +129,6 @@ contract Strategy is BaseStrategy {
         uint256 balance3crv = balanceOf3crv();
         if(balance3crv > 0){
             crv3.safeTransfer(_newStrategy, balance3crv);
-        }
-
-        uint256 balanceYveCrv = want.balanceOf(address(this));
-        if(balanceYveCrv > 0) {
-            IERC20(want).safeTransfer(_newStrategy, balanceYveCrv);
         }
     }
 
