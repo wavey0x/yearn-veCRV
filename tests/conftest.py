@@ -1,5 +1,5 @@
 import pytest, requests
-from brownie import ZERO_ADDRESS, config, Contract, interface, StrategyProxy, web3, chain
+from brownie import ZERO_ADDRESS, config, Contract, interface, StrategyProxy, yCRV, web3, chain
 
 # This causes test not to re-run fixtures on each run
 @pytest.fixture(autouse=True)
@@ -126,6 +126,14 @@ def live_strat():
 def zap(strategist, ZapYearnVeCRV):
     zap = strategist.deploy(ZapYearnVeCRV)
     yield zap
+
+@pytest.fixture
+def ycrv(strategist, live_strat, 
+    keeper, vault, Strategy, gov, token, crv3, usdc,
+    trade_factory, ymechs_safe
+    ):
+    ycrv = strategist.deploy(yCRV, "yCRV", "yCRV", 18, 0)
+    yield ycrv
 
 @pytest.fixture
 def strategy(strategist, live_strat, 
