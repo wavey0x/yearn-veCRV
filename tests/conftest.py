@@ -132,7 +132,7 @@ def ycrv(strategist, live_strat,
     keeper, vault, Strategy, gov, token, crv3, usdc,
     trade_factory, ymechs_safe
     ):
-    ycrv = strategist.deploy(yCRV, "yCRV", "yCRV", 18, 0)
+    ycrv = strategist.deploy(yCRV)
     yield ycrv
 
 @pytest.fixture

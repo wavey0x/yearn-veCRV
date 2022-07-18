@@ -20,7 +20,7 @@ event UpdateAdmin:
     admin: indexed(address)
 
 YVECRV: constant(address) = 0xc5bDdf9843308380375a611c18B50Fb9341f502A
-name: public(String[32]) 
+name: public(String[32])
 symbol: public(String[32])
 decimals: public(uint8)
 
@@ -100,21 +100,21 @@ def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sende
     self._mint(_recipient, amount)
 
 @external
-def set_admin(proposed_admin: address):
+def set_admin(_proposed_admin: address):
     assert msg.sender == self.admin
-    self.admin = proposed_admin
+    self.admin = _proposed_admin
 
-    log UpdateAdmin(proposed_admin)
+    log UpdateAdmin(_proposed_admin)
 
 @external
-def sweep(token: address, amount: uint256 = MAX_UINT256):
+def sweep(_token: address, _amount: uint256 = MAX_UINT256):
     assert msg.sender == self.admin
-    assert token != YVECRV
-    value: uint256 = amount
+    assert _token != YVECRV
+    value: uint256 = _amount
     if value == MAX_UINT256:
-        value = ERC20(token).balanceOf(self)
+        value = ERC20(_token).balanceOf(self)
     
-    assert ERC20(token).transfer(self.admin, value)
+    ERC20(_token).transfer(self.admin, value)
 
 @external
 def sweep_yvecrv():
