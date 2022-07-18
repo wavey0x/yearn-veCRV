@@ -20,7 +20,7 @@ event UpdateAdmin:
     admin: indexed(address)
 
 YVECRV: constant(address) = 0xc5bDdf9843308380375a611c18B50Fb9341f502A
-name: public(String[32])
+name: public(String[32]) 
 symbol: public(String[32])
 decimals: public(uint8)
 
@@ -32,11 +32,10 @@ admin: public(address)
 
 
 @external
-def __init__(_name: String[32], _symbol: String[32], _decimals: uint8, _supply: uint256):
-    init_supply: uint256 = _supply * 10 ** convert(_decimals, uint256)
-    self.name = _name
-    self.symbol = _symbol
-    self.decimals = _decimals
+def __init__():
+    self.name = "Yearn CRV"
+    self.symbol = "yCRV"
+    self.decimals = 18
     self.admin = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
 
 @external
