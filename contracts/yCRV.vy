@@ -14,6 +14,12 @@ event Transfer:
     receiver: indexed(address)
     value: uint256
 
+event Mint:
+    minter: indexed(address)
+    receiver: indexed(address)
+    burned: indexed(bool)
+    value: uint256
+
 event Approval:
     owner: indexed(address)
     spender: indexed(address)
@@ -21,6 +27,9 @@ event Approval:
 
 event UpdateAdmin:
     admin: indexed(address)
+
+event UpdateProxy:
+    proxy: indexed(address)
 
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52
@@ -34,7 +43,6 @@ balanceOf: public(HashMap[address, uint256])
 allowance: public(HashMap[address, HashMap[address, uint256]])
 totalSupply: public(uint256)
 burned: public(uint256)
-donated: public(uint256)
 admin: public(address)
 
 @external
@@ -105,8 +113,8 @@ def mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender):
     assert amount > 0
     assert ERC20(CRV).transferFrom(msg.sender, VOTER, amount)  # dev: no allowance
     Proxy(self.proxy).lock()
-    self.donated += amount
     self._mint(_recipient, amount)
+    log Mint(msg.sender, _recipient, False, amount)
 
 @external
 def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender):
@@ -123,6 +131,7 @@ def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sende
     assert ERC20(YVECRV).transferFrom(msg.sender, self, amount)  # dev: no allowance
     self.burned += amount
     self._mint(_recipient, amount)
+    log Mint(msg.sender, _recipient, True, amount)
 
 @external
 def set_admin(_proposed_admin: address):
@@ -134,6 +143,7 @@ def set_admin(_proposed_admin: address):
 def set_proxy(_proxy: address):
     assert msg.sender == self.admin
     self.proxy = _proxy
+    log UpdateProxy(_proxy)
 
 @external
 def sweep(_token: address, _amount: uint256 = MAX_UINT256):
