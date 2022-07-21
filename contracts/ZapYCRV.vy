@@ -114,8 +114,10 @@ def sweep(_token: address, _amount: uint256 = MAX_UINT256):
 @external
 def calc_normalized_out_legacy(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256) -> uint256:
     """
-    @notice This view returns the expected amount of tokens output after conversion assuming no slippage / price impact
-    @dev use this value 
+    @notice 
+        This view returns the expected amount of tokens output after conversion assuming no slippage / price impact
+    @dev 
+        Use this value for off-chain calculations only
     @param _input_token The legacy token to migrate from
     @param _output_token The yCRV token to migrate to
     @param _amount_in The yCRV token to migrate to
@@ -142,8 +144,10 @@ def calc_normalized_out_legacy(_input_token: address, _output_token: address, _a
 @external
 def calc_normalized_out(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256) -> uint256:
     """
-    @notice This view returns the expected amount of tokens output after conversion assuming no slippage / price impact
-    @dev use this value 
+    @notice 
+        This view returns the expected amount of tokens output after conversion assuming no slippage / price impact
+    @dev 
+        Use this value for off-chain calculations only
     @param _input_token The legacy token to migrate from
     @param _output_token The yCRV token to migrate to
     @param _amount_in The yCRV token to migrate to
@@ -174,8 +178,10 @@ def calc_normalized_out(_input_token: address, _output_token: address, _amount_i
 @external
 def calc_expected_out_legacy(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256) -> uint256:
     """
-    @notice This view returns the expected amount of tokens output after conversion assuming no slippage / price impact
-    @dev use this value 
+    @notice 
+        This view returns the expected amount of tokens output after conversion assuming no slippage / price impact
+    @dev 
+        Use this value for off-chain calculations only
     @param _input_token The legacy token to migrate from
     @param _output_token The yCRV token to migrate to
     @param _amount_in The yCRV token to migrate to
@@ -202,8 +208,10 @@ def calc_expected_out_legacy(_input_token: address, _output_token: address, _amo
 @external
 def calc_expected_out(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256) -> uint256:
     """
-    @notice This view returns the expected amount of tokens output after conversion assuming no slippage / price impact
-    @dev use this value 
+    @notice 
+        This view returns the expected amount of tokens output after conversion assuming no slippage / price impact
+    @dev 
+        Use this value for off-chain calculations only
     @param _input_token The legacy token to migrate from
     @param _output_token The yCRV token to migrate to
     @param _amount_in The yCRV token to migrate to
@@ -219,7 +227,7 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     amount: uint256 = _amount_in
     if _input_token == STYCRV:
         amount = Vault(STYCRV).pricePerShare() * amount / 10 ** 18
-    if _input_token == LPVAULT:
+    elif _input_token == LPVAULT:
         lp_amount: uint256 = Vault(LPVAULT).pricePerShare() * amount / 10 ** 18
         amount = Curve(POOL).calc_token_amount([0, lp_amount], False) # Withdraw = False
     else:

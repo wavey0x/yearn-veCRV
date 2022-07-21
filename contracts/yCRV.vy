@@ -6,9 +6,6 @@ from vyper.interfaces import ERC20Detailed
 implements: ERC20
 implements: ERC20Detailed
 
-interface Proxy:
-    def lock(): nonpayable
-
 event Transfer:
     sender: indexed(address)
     receiver: indexed(address)
@@ -93,6 +90,19 @@ def approve(_spender : address, _value : uint256) -> bool:
     return True
 
 @internal
+def proxy_lock():
+    # Used to lock CRV from proxy. Avoid revert on failure in case proxy upgrade breaks API.
+    success: bool = False
+    response: Bytes[32] = b""
+    (success, response) = raw_call(
+        self.proxy,
+        method_id("lock()"),
+        max_outsize=32,
+        value=0,
+        revert_on_failure=False
+    )
+        
+@internal
 def _mint(_to: address, _value: uint256):
     self.totalSupply += _value
     self.balanceOf[_to] += _value
@@ -112,7 +122,7 @@ def mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender):
         amount = ERC20(CRV).balanceOf(msg.sender)
     assert amount > 0
     assert ERC20(CRV).transferFrom(msg.sender, VOTER, amount)  # dev: no allowance
-    Proxy(self.proxy).lock()
+    self.proxy_lock()
     self._mint(_recipient, amount)
     log Mint(msg.sender, _recipient, False, amount)
 
