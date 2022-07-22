@@ -113,7 +113,9 @@ def zap_from_legacy(_input_token: address, _output_token: address, _amount_in: u
 @external
 def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256, _min_out: uint256 = 0, _recipient: address = msg.sender) -> uint256:
     """
-    @notice This function allows users to zap between any yCRV based token
+    @notice 
+        This function allows users to zap between any two yCRV based tokens. Use zap_from_legacy if your input
+        token is yveCRV or yvBOOST. 
     @dev 
         When zapping between tokens that incur slippage, it is recommended to make an off-chain call to
         the "calc_expected_out" helper to estimate _min_out.
@@ -143,7 +145,10 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
         amount = Curve(self.POOL).remove_liquidity_one_coin(lp_amount, 1, 0)
 
     # Phase 2: Convert YCRV to output token
-    if _output_token == self.STYCRV:
+    if _output_token == self.YCRV:
+        assert ERC20(_input_token).transfer(_recipient, amount)
+        return amount
+    elif _output_token == self.STYCRV:
         amount_out: uint256 = Vault(self.STYCRV).deposit(amount, _recipient)
         assert amount_out >= _min_out
         return amount_out
