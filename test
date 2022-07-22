@@ -1,0 +1,476 @@
+[
+    {
+        'anonymous': False,
+        'inputs': [
+            {
+                'indexed': true,
+                'name': "admin",
+                'type': "address"
+            }
+        ],
+        'name': "UpdateAdmin",
+        'type': "event"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_YCRV",
+                'type': "address"
+            },
+            {
+                'name': "_STYCRV",
+                'type': "address"
+            },
+            {
+                'name': "_LPYCRV",
+                'type': "address"
+            },
+            {
+                'name': "_POOL",
+                'type': "address"
+            }
+        ],
+        'name': "constructor",
+        'outputs': [],
+        'stateMutability': "nonpayable",
+        'type': "constructor"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            }
+        ],
+        'name': "zap_from_legacy",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "nonpayable",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            },
+            {
+                'name': "_amount_in",
+                'type': "uint256"
+            }
+        ],
+        'name': "zap_from_legacy",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "nonpayable",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            },
+            {
+                'name': "_amount_in",
+                'type': "uint256"
+            },
+            {
+                'name': "_min_out",
+                'type': "uint256"
+            }
+        ],
+        'name': "zap_from_legacy",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "nonpayable",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            },
+            {
+                'name': "_amount_in",
+                'type': "uint256"
+            },
+            {
+                'name': "_min_out",
+                'type': "uint256"
+            },
+            {
+                'name': "_recipient",
+                'type': "address"
+            }
+        ],
+        'name': "zap_from_legacy",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "nonpayable",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_proposed_admin",
+                'type': "address"
+            }
+        ],
+        'name': "set_admin",
+        'outputs': [],
+        'stateMutability': "nonpayable",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_token",
+                'type': "address"
+            }
+        ],
+        'name': "sweep",
+        'outputs': [],
+        'stateMutability': "nonpayable",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_token",
+                'type': "address"
+            },
+            {
+                'name': "_amount",
+                'type': "uint256"
+            }
+        ],
+        'name': "sweep",
+        'outputs': [],
+        'stateMutability': "nonpayable",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            }
+        ],
+        'name': "calc_normalized_out_legacy",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            },
+            {
+                'name': "_amount_in",
+                'type': "uint256"
+            }
+        ],
+        'name': "calc_normalized_out_legacy",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            }
+        ],
+        'name': "calc_normalized_out",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            },
+            {
+                'name': "_amount_in",
+                'type': "uint256"
+            }
+        ],
+        'name': "calc_normalized_out",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            }
+        ],
+        'name': "calc_expected_out_legacy",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            },
+            {
+                'name': "_amount_in",
+                'type': "uint256"
+            }
+        ],
+        'name': "calc_expected_out_legacy",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            }
+        ],
+        'name': "calc_expected_out",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "_input_token",
+                'type': "address"
+            },
+            {
+                'name': "_output_token",
+                'type': "address"
+            },
+            {
+                'name': "_amount_in",
+                'type': "uint256"
+            }
+        ],
+        'name': "calc_expected_out",
+        'outputs': [
+            {
+                'name': "",
+                'type': "uint256"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [],
+        'name': "YCRV",
+        'outputs': [
+            {
+                'name': "",
+                'type': "address"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [],
+        'name': "STYCRV",
+        'outputs': [
+            {
+                'name': "",
+                'type': "address"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [],
+        'name': "POOL",
+        'outputs': [
+            {
+                'name': "",
+                'type': "address"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [],
+        'name': "LPYCRV",
+        'outputs': [
+            {
+                'name': "",
+                'type': "address"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [],
+        'name': "name",
+        'outputs': [
+            {
+                'name': "",
+                'type': "string"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [],
+        'name': "admin",
+        'outputs': [
+            {
+                'name': "",
+                'type': "address"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "arg0",
+                'type': "uint256"
+            }
+        ],
+        'name': "legacy_tokens",
+        'outputs': [
+            {
+                'name': "",
+                'type': "address"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    },
+    {
+        'inputs': [
+            {
+                'name': "arg0",
+                'type': "uint256"
+            }
+        ],
+        'name': "output_tokens",
+        'outputs': [
+            {
+                'name': "",
+                'type': "address"
+            }
+        ],
+        'stateMutability': "view",
+        'type': "function"
+    }
+]

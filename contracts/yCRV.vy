@@ -25,14 +25,10 @@ event Approval:
 event UpdateAdmin:
     admin: indexed(address)
 
-event UpdateProxy:
-    proxy: indexed(address)
-
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52
 VOTER: constant(address) =      0xF147b8125d2ef93FB6965Db97D6746952a133934
 name: public(String[32])
-proxy: public(address)
 symbol: public(String[32])
 decimals: public(uint8)
 
@@ -48,7 +44,6 @@ def __init__():
     self.symbol = "yCRV"
     self.decimals = 18
     self.admin = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
-    self.proxy = 0xA420A63BbEFfbda3B147d0585F1852C358e2C152
 
 @external
 def transfer(_to : address, _value : uint256) -> bool:
@@ -88,19 +83,6 @@ def approve(_spender : address, _value : uint256) -> bool:
     self.allowance[msg.sender][_spender] = _value
     log Approval(msg.sender, _spender, _value)
     return True
-
-@internal
-def proxy_lock():
-    # Used to lock CRV from proxy. Avoid revert on failure in case proxy upgrade breaks API.
-    success: bool = False
-    response: Bytes[32] = b""
-    (success, response) = raw_call(
-        self.proxy,
-        method_id("lock()"),
-        max_outsize=32,
-        value=0,
-        revert_on_failure=False
-    )
         
 @internal
 def _mint(_to: address, _value: uint256):
@@ -122,7 +104,6 @@ def mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender):
         amount = ERC20(CRV).balanceOf(msg.sender)
     assert amount > 0
     assert ERC20(CRV).transferFrom(msg.sender, VOTER, amount)  # dev: no allowance
-    self.proxy_lock()
     self._mint(_recipient, amount)
     log Mint(msg.sender, _recipient, False, amount)
 
@@ -148,12 +129,6 @@ def set_admin(_proposed_admin: address):
     assert msg.sender == self.admin
     self.admin = _proposed_admin
     log UpdateAdmin(_proposed_admin)
-
-@external
-def set_proxy(_proxy: address):
-    assert msg.sender == self.admin
-    self.proxy = _proxy
-    log UpdateProxy(_proxy)
 
 @external
 def sweep(_token: address, _amount: uint256 = MAX_UINT256):
