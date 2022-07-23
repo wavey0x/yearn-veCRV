@@ -9,10 +9,13 @@ interface Vault:
     def pricePerShare() -> uint256: view
 
 interface IYCRV:
-    def burn_to_mint(amount: uint256, recipient: address = msg.sender): nonpayable
+    def burn_to_mint(amount: uint256, recipient: address = msg.sender) -> uint256: nonpayable
+    def mint(amount: uint256, recipient: address = msg.sender) -> uint256: nonpayable
 
 interface Curve:
     def get_virtual_price() -> uint256: view
+    def get_dy(i: int128, j: int128, dx: uint256) -> uint256: view
+    def exchange(i: int128, j: int128, _dx: uint256, _min_dy: uint256) -> uint256: nonpayable
     def add_liquidity(amounts: uint256[2], min_mint_amount: uint256) -> uint256: nonpayable
     def remove_liquidity_one_coin(_token_amount: uint256, i: int128, min_amount: uint256) -> uint256: nonpayable
     def calc_token_amount(amounts: uint256[2], deposit: bool) -> uint256: view
@@ -36,7 +39,7 @@ name: public(String[32])
 admin: public(address)
 
 legacy_tokens: public(address[2])
-output_tokens: public(address[3])
+output_tokens: public(address[4])
 
 @external
 def __init__(_YCRV: address, _STYCRV: address, _LPYCRV: address, _POOL: address):
@@ -53,7 +56,14 @@ def __init__(_YCRV: address, _STYCRV: address, _LPYCRV: address, _POOL: address)
     ERC20(self.POOL).approve(_YCRV, MAX_UINT256)
 
     self.legacy_tokens = [YVECRV, YVBOOST]
-    self.output_tokens = [self.YCRV, self.STYCRV, self.LPYCRV]
+    self.output_tokens = [CRV, self.YCRV, self.STYCRV, self.LPYCRV]
+
+@internal
+def convert_crv(amount: uint256) -> uint256:
+    output_amount: uint256 = Curve(self.POOL).get_dy(0, 1, amount)
+    if output_amount > amount:
+        return Curve(self.POOL).exchange(0, 1, amount, 0)
+    return IYCRV(self.YCRV).mint(amount)
 
 @internal
 def lp(_amounts: uint256[2], _min_out: uint256, _recipient: address) -> uint256:
@@ -138,6 +148,8 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
 
     # Phase 1: Convert to YCRV
     assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
+    if _input_token == CRV:
+        self.convert_crv(amount)
     if _input_token == self.STYCRV:
         amount = Vault(self.STYCRV).withdraw(amount)
     elif _input_token == self.LPYCRV:

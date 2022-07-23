@@ -91,7 +91,7 @@ def _mint(_to: address, _value: uint256):
     log Transfer(ZERO_ADDRESS, _to, _value)
 
 @external
-def mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender):
+def mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender) -> uint256:
     """
     @notice Donate any amount of CRV to mint yCRV 1 to 1. 
     Donations are non-redeemable, and will be locked forever.
@@ -106,9 +106,10 @@ def mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender):
     assert ERC20(CRV).transferFrom(msg.sender, VOTER, amount)  # dev: no allowance
     self._mint(_recipient, amount)
     log Mint(msg.sender, _recipient, False, amount)
+    return amount
 
 @external
-def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender):
+def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender) -> uint256:
     """
     @dev burn an amount of yveCRV token and mint yCRV token 1 to 1.
     @param _amount The amount of yveCRV to burn and yCRV to mint.
@@ -123,6 +124,7 @@ def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sende
     self.burned += amount
     self._mint(_recipient, amount)
     log Mint(msg.sender, _recipient, True, amount)
+    return amount
 
 @external
 def set_admin(_proposed_admin: address):
