@@ -28,19 +28,19 @@ def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, chain, whale_cr
             output_tokens.append(zap.output_tokens(i))
     except:
         pass
-
+    
+    input_tokens = legacy_tokens + output_tokens
     # Test some calls
     amount = 10e18
-    for i in legacy_tokens:
+    for i in input_tokens:
         for o in output_tokens:
-            r = zap.calc_expected_out_from_legacy(i, o, amount)
-            s = zap.virtual_price_from_legacy(i, o, amount)
-            print_results(True,i, o, amount, r, s)
-    for i in output_tokens:
-        for o in output_tokens:
+            if i == lp_ycrv and o == ycrv:
+                tx = zap.calc_expected_out.transact(i, o, amount)
+                print_results(True,i, o, amount, r, s)
+                assert False
             r = zap.calc_expected_out(i, o, amount)
             s = zap.virtual_price(i, o, amount)
-            print_results(False, i, o, amount, r, s)
+            print_results(True,i, o, amount, r, s)
 
 def print_results(is_legacy, i, o, a, r, s):
     abi = Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a").abi

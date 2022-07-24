@@ -39,7 +39,7 @@ def whale_yvboost(accounts):
 def user(accounts, yveCrv, yvboost, crv, whale_yvecrv, whale_crv, whale_yvboost):
     yvboost.transfer(accounts[0], 500e18,{'from':whale_yvboost})
     crv.transfer(accounts[0], 500e18,{'from':whale_crv})
-    yveCrv.transfer(accounts[0], 500e18,{'from':whale_yvecrv})
+    yveCrv.transfer(accounts[0], 1_000e18,{'from':whale_yvecrv})
     yield accounts[0]
 
 @pytest.fixture
@@ -172,7 +172,7 @@ def pool(strategist, gov, ycrv, yveCrv, vault_abi, crv, user):
     ycrv.approve(pool, 2**256-1, {'from':user})
     crv.approve(pool, 2**256-1, {'from':user})
     ycrv.burn_to_mint(yveCrv.balanceOf(user)/2, {'from':user})
-    amounts = [205e18, 101e18]
+    amounts = [105e18, 209e18]
     pool.add_liquidity(amounts, chain.time(),{'from': user})
     yield pool
 
