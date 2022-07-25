@@ -47,14 +47,17 @@ def __init__(_YCRV: address, _STYCRV: address, _LPYCRV: address, _POOL: address)
     self.name = "Zap Yearn CRV"
     self.admin = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
     
-
     self.YCRV = _YCRV
     self.STYCRV = _STYCRV
     self.LPYCRV = _LPYCRV
     self.POOL = _POOL
 
     ERC20(YVECRV).approve(_YCRV, MAX_UINT256)
-    ERC20(self.POOL).approve(_YCRV, MAX_UINT256)
+    ERC20(self.YCRV).approve(self.STYCRV, MAX_UINT256)
+    ERC20(self.YCRV).approve(self.POOL, MAX_UINT256)
+    ERC20(self.POOL).approve(self.LPYCRV, MAX_UINT256)
+    ERC20(CRV).approve(self.POOL, MAX_UINT256)
+    ERC20(CRV).approve(self.YCRV, MAX_UINT256)
 
     self.legacy_tokens = [YVECRV, YVBOOST]
     self.output_tokens = [self.YCRV, self.STYCRV, self.LPYCRV]
@@ -64,7 +67,8 @@ def _convert_crv(amount: uint256) -> uint256:
     output_amount: uint256 = Curve(self.POOL).get_dy(0, 1, amount)
     if output_amount > amount:
         return Curve(self.POOL).exchange(0, 1, amount, 0)
-    return IYCRV(self.YCRV).mint(amount)
+    else:
+        return IYCRV(self.YCRV).mint(amount)
 
 @internal
 def _lp(_amounts: uint256[2], _min_out: uint256, _recipient: address) -> uint256:
@@ -75,11 +79,11 @@ def _convert_to_output(_output_token: address, amount: uint256, _min_out: uint25
     # dev: output token and amount values have already been validated
     if _output_token == self.STYCRV:
         amount_out: uint256 = Vault(self.STYCRV).deposit(amount, _recipient)
-        assert amount_out >= _min_out
+        assert amount_out >= _min_out # dev: min out
         return amount_out
     assert _output_token == self.LPYCRV
     amount_out: uint256 = Vault(self.LPYCRV).deposit(self._lp([0, amount], _min_out, _recipient))
-    assert amount_out >= _min_out
+    assert amount_out >= _min_out # dev: min out
     return amount_out
 
 @internal
@@ -93,7 +97,7 @@ def _zap_from_legacy(_input_token: address, _output_token: address, _amount: uin
     # Mint YCRV
     if _output_token == self.YCRV:
         IYCRV(self.YCRV).burn_to_mint(amount, _recipient)
-        assert amount >= _min_out
+        assert amount >= _min_out # dev: min out
         return amount
     IYCRV(self.YCRV).burn_to_mint(amount)
     return self._convert_to_output(_output_token, amount, _min_out, _recipient)
@@ -130,7 +134,7 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
 
     if _input_token == CRV:
         assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
-        self._convert_crv(amount)
+        amount = self._convert_crv(amount)
     else:
         assert _input_token in self.output_tokens   # dev: invalid input token address
         assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
@@ -143,8 +147,8 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
 
     # Phase 2: Convert YCRV to output token
     if _output_token == self.YCRV:
-        assert amount >= _min_out
-        ERC20(_input_token).transfer(_recipient, amount)
+        assert amount >= _min_out # dev: min out
+        ERC20(_output_token).transfer(_recipient, amount)
         return amount
     return self._convert_to_output(_output_token, amount, _min_out, _recipient)
 
@@ -197,7 +201,7 @@ def virtual_price(_input_token: address, _output_token: address, _amount_in: uin
     assert _output_token in self.output_tokens  # dev: invalid output token address
     if _input_token in self.legacy_tokens:
         return self._virtual_price_from_legacy(_input_token, _output_token, _amount_in)
-    assert _input_token in self.output_tokens   # dev: invalid input token address
+    assert _input_token == CRV or _input_token in self.output_tokens  # dev: invalid input token address
     
     if _amount_in == 0:
         return 0
@@ -254,20 +258,23 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     assert _output_token in self.output_tokens  # dev: invalid output token address
     if _input_token in self.legacy_tokens:
         return self._calc_expected_out_from_legacy(_input_token, _output_token, _amount_in)
-    assert _input_token in self.output_tokens   # dev: invalid input token address
-    if _amount_in == 0:
+    amount: uint256 = _amount_in
+    if _input_token == CRV:
+        output_amount: uint256 = Curve(self.POOL).get_dy(0, 1, amount)
+        if output_amount > amount:
+            amount = output_amount
+    else:
+        assert _input_token in self.output_tokens   # dev: invalid input token address
+    if amount == 0:
         return 0
     if _input_token == _output_token:
-        return _amount_in # This will revert in .zap() function
+        return amount # This will revert in .zap() function
 
-    amount: uint256 = _amount_in
     if _input_token == self.STYCRV:
         amount = Vault(self.STYCRV).pricePerShare() * amount / 10 ** 18
     elif _input_token == self.LPYCRV:
         lp_amount: uint256 = Vault(self.LPYCRV).pricePerShare() * amount / 10 ** 18
-        amount = Curve(self.POOL).calc_withdraw_one_coin(lp_amount, 0)
-    else:
-        assert _input_token == self.YCRV
+        amount = Curve(self.POOL).calc_withdraw_one_coin(lp_amount, 1)
 
     if _output_token == self.YCRV:
         return amount

@@ -1,4 +1,4 @@
-import math, time
+import math, time, brownie
 from re import A
 from brownie import Contract
 import time
@@ -9,6 +9,9 @@ def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, chain, whale_cr
     crv.approve(pool, 2**256-1, {"from": whale_crv})
     yvboost.approve(zap, 2**256-1, {"from": user})
     yveCrv.approve(zap, 2**256-1, {"from": user})
+    lp_ycrv.approve(zap, 2**256-1, {"from": user})
+    st_ycrv.approve(zap, 2**256-1, {"from": user})
+    ycrv.approve(zap, 2**256-1, {"from": user})
     
     chain.snapshot()
     crv_before = crv.balanceOf(user)
@@ -30,28 +33,38 @@ def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, chain, whale_cr
         pass
     
     input_tokens = legacy_tokens + output_tokens
+    input_tokens.append(crv.address)
     # Test some calls
     amount = 10e18
     for i in input_tokens:
         for o in output_tokens:
-            if i == lp_ycrv and o == ycrv:
-                tx = zap.calc_expected_out.transact(i, o, amount)
-                print_results(True,i, o, amount, r, s)
-                assert False
+            # if i == lp_ycrv and o == ycrv:
+            #     tx = zap.calc_expected_out.transact(i, o, amount)
+            #     print_results(True,i, o, amount, r, s)
+            #     assert False
             r = zap.calc_expected_out(i, o, amount)
             s = zap.virtual_price(i, o, amount)
-            print_results(True,i, o, amount, r, s)
+            min = r * 0.99
+            actual = 0
+            if i == o:
+                with brownie.reverts():
+                    actual = zap.zap(i, o, amount, r * .99, {'from': user}).return_value
+            else:
+                actual = zap.zap(i, o, amount, r * .99, {'from': user}).return_value
+            print_results(True,i, o, amount, r, s, actual)
 
-def print_results(is_legacy, i, o, a, r, s):
+    
+
+def print_results(is_legacy, i, o, a, r, s, actual):
     abi = Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a").abi
     i = Contract.from_abi("",i,abi).symbol()
     o = Contract.from_abi("",o,abi).symbol()
-    print(f'{"   Legacy" if is_legacy else ""}')
     print(f'IN  {i}')
     print(f'OUT {o}')
     print(f'AMT IN  {a/1e18}')
     print(f'VIRT AMT OUT {s/1e18}')
     print(f'EXP AMT OUT {r/1e18}')
+    print(f'ACTUAL AMT OUT {actual/1e18}')
     print('---')
 
     # zap.zapCRVtoLPVault(2e18, 0, user, {"from":user})
