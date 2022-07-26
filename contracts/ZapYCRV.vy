@@ -195,7 +195,7 @@ def virtual_price(_input_token: address, _output_token: address, _amount_in: uin
         This value should only be used to compare against "calc_expected_out_from_legacy" to project price impact.
     @param _input_token The token to migrate from
     @param _output_token The yCRV token to migrate to
-    @param _amount_in The yCRV token to migrate to
+    @param _amount_in Amount of input token to migrate, defaults to full balance
     @return Amount of output token transferred to the _recipient
     """
     assert _output_token in self.output_tokens  # dev: invalid output token address
@@ -252,7 +252,7 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
         Needed to prevent front-running, do not rely on it for precise calculations!
     @param _input_token A valid input token address to migrate from
     @param _output_token The yCRV token address to migrate to
-    @param _amount_in The yCRV token to migrate to
+    @param _amount_in Amount of input token to migrate, defaults to full balance
     @return Amount of output token transferred to the _recipient
     """
     assert _output_token in self.output_tokens  # dev: invalid output token address
@@ -280,7 +280,6 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
         return amount
     elif _output_token == self.STYCRV:
         return amount * 10 ** 18 / Vault(self.STYCRV).pricePerShare()
-    else:
-        assert _output_token == self.LPYCRV
-        lp_amount: uint256 = Curve(self.POOL).calc_token_amount([0, amount], True) # Deposit = True
-        return Vault(self.LPYCRV).pricePerShare() * lp_amount / 10 ** 18
+    assert _output_token == self.LPYCRV
+    lp_amount: uint256 = Curve(self.POOL).calc_token_amount([0, amount], True) # Deposit = True
+    return lp_amount * 10 ** 18 / Vault(self.LPYCRV).pricePerShare()
