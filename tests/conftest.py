@@ -36,10 +36,11 @@ def whale_yvboost(accounts):
     yield accounts.at("0x25431341A5800759268a6aC1d3CD91C029D7d9CA", force=True)
 
 @pytest.fixture
-def user(accounts, yveCrv, yvboost, crv, whale_yvecrv, whale_crv, whale_yvboost):
+def user(accounts, yveCrv, yvboost, crv, whale_yvecrv, whale_crv, whale_yvboost, cvxcrv, whale_cvxcrv):
     yvboost.transfer(accounts[0], 500e18,{'from':whale_yvboost})
     crv.transfer(accounts[0], 500e18,{'from':whale_crv})
     yveCrv.transfer(accounts[0], 1_000e18,{'from':whale_yvecrv})
+    cvxcrv.transfer(accounts[0], 1_000e18,{'from':whale_cvxcrv})
     yield accounts[0]
 
 @pytest.fixture
@@ -82,6 +83,13 @@ def token():
 def crv():
     yield Contract("0xD533a949740bb3306d119CC777fa900bA034cd52")
 
+@pytest.fixture
+def cvxcrv():
+    yield Contract("0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7")
+
+@pytest.fixture
+def whale_cvxcrv(accounts):
+    yield accounts.at("0x3Fe65692bfCD0e6CF84cB1E7d24108E434A7587e", force=True)
 
 @pytest.fixture
 def amount(accounts, token, gov):

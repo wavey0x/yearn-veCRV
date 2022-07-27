@@ -3,7 +3,7 @@ from re import A
 from brownie import Contract
 import time
 
-def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv):
+def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv):
     ycrv.burn_to_mint(yveCrv.balanceOf(user)/2, {'from':user})
     crv.approve(zap, 2**256-1, {"from": user})
     crv.approve(pool, 2**256-1, {"from": whale_crv})
@@ -11,6 +11,7 @@ def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, chain, whale_cr
     yveCrv.approve(zap, 2**256-1, {"from": user})
     lp_ycrv.approve(zap, 2**256-1, {"from": user})
     st_ycrv.approve(zap, 2**256-1, {"from": user})
+    cvxcrv.approve(zap, 2**256-1, {"from": user})
     ycrv.approve(zap, 2**256-1, {"from": user})
     
     chain.snapshot()
@@ -34,6 +35,7 @@ def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, chain, whale_cr
     
     input_tokens = legacy_tokens + output_tokens
     input_tokens.append(crv.address)
+    input_tokens.append(cvxcrv.address)
     # Test some calls
     amount = 10e18
     for i in input_tokens:
@@ -43,7 +45,7 @@ def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, chain, whale_cr
             #     print_results(True,i, o, amount, r, s)
             #     assert False
             r = zap.calc_expected_out(i, o, amount)
-            s = zap.virtual_price(i, o, amount)
+            s = zap.relative_price(i, o, amount)
             min = r * 0.99
             actual = 0
             if i == o:

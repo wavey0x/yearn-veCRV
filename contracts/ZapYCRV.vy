@@ -27,10 +27,9 @@ event UpdateAdmin:
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A # YVECRV
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52 # CRV
 YVBOOST: constant(address) =    0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a # YVBOOST
-# YCRV: constant(address) =       0xc5bDdf9843308380375a611c18B50Fb9341f502A # YCRV
-# STYCRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A # ST-YCRV
-# POOL: constant(address) =       0xc5bDdf9843308380375a611c18B50Fb9341f502A # POOL
-# LPYCRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A # LP-YCRV
+CVXCRV: constant(address) =     0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7 # CVXCRV
+CVXCRVPOOL: constant(address) = 0x9D0464996170c6B9e75eED71c68B99dDEDf279e8 # CVXCRVPOOL
+
 YCRV: public(address)
 STYCRV: public(address)
 POOL: public(address)
@@ -58,6 +57,7 @@ def __init__(_YCRV: address, _STYCRV: address, _LPYCRV: address, _POOL: address)
     ERC20(self.POOL).approve(self.LPYCRV, MAX_UINT256)
     ERC20(CRV).approve(self.POOL, MAX_UINT256)
     ERC20(CRV).approve(self.YCRV, MAX_UINT256)
+    ERC20(CVXCRV).approve(CVXCRVPOOL, MAX_UINT256)
 
     self.legacy_tokens = [YVECRV, YVBOOST]
     self.output_tokens = [self.YCRV, self.STYCRV, self.LPYCRV]
@@ -131,9 +131,10 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
 
     if _input_token in self.legacy_tokens:
         return self._zap_from_legacy(_input_token, _output_token, amount, _min_out, _recipient)
-
-    if _input_token == CRV:
+    elif _input_token == CRV or _input_token == CVXCRV:
         assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
+        if _input_token == CVXCRV:
+            amount = Curve(CVXCRVPOOL).exchange(1, 0, amount, 0)
         amount = self._convert_crv(amount)
     else:
         assert _input_token in self.output_tokens   # dev: invalid input token address
@@ -168,7 +169,7 @@ def sweep(_token: address, _amount: uint256 = MAX_UINT256):
 
 @view
 @internal
-def _virtual_price_from_legacy(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256) -> uint256:
+def _relative_price_from_legacy(_input_token: address, _output_token: address, _amount_in: uint256) -> uint256:
     if _amount_in == 0:
         return 0
 
@@ -186,7 +187,7 @@ def _virtual_price_from_legacy(_input_token: address, _output_token: address, _a
 
 @view
 @external
-def virtual_price(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256) -> uint256:
+def relative_price(_input_token: address, _output_token: address, _amount_in: uint256) -> uint256:
     """
     @notice 
         This returns a rough amount of output assuming there's a balanced liquidity pool.
@@ -200,8 +201,8 @@ def virtual_price(_input_token: address, _output_token: address, _amount_in: uin
     """
     assert _output_token in self.output_tokens  # dev: invalid output token address
     if _input_token in self.legacy_tokens:
-        return self._virtual_price_from_legacy(_input_token, _output_token, _amount_in)
-    assert _input_token == CRV or _input_token in self.output_tokens  # dev: invalid input token address
+        return self._relative_price_from_legacy(_input_token, _output_token, _amount_in)
+    assert _input_token == CRV or _input_token in self.output_tokens or _input_token == CVXCRV # dev: invalid input token address
     
     if _amount_in == 0:
         return 0
@@ -225,7 +226,7 @@ def virtual_price(_input_token: address, _output_token: address, _amount_in: uin
 
 @view
 @internal
-def _calc_expected_out_from_legacy(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256) -> uint256:
+def _calc_expected_out_from_legacy(_input_token: address, _output_token: address, _amount_in: uint256) -> uint256:
     if _amount_in == 0:
         return 0
 
@@ -243,7 +244,7 @@ def _calc_expected_out_from_legacy(_input_token: address, _output_token: address
 
 @view
 @external
-def calc_expected_out(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256) -> uint256:
+def calc_expected_out(_input_token: address, _output_token: address, _amount_in: uint256) -> uint256:
     """
     @notice 
         This returns the expected amount of tokens output after conversion.
@@ -259,7 +260,9 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     if _input_token in self.legacy_tokens:
         return self._calc_expected_out_from_legacy(_input_token, _output_token, _amount_in)
     amount: uint256 = _amount_in
-    if _input_token == CRV:
+    if _input_token == CRV or _input_token == CVXCRV:
+        if _input_token == CVXCRV:
+            amount = Curve(CVXCRVPOOL).get_dy(1, 0, amount)
         output_amount: uint256 = Curve(self.POOL).get_dy(0, 1, amount)
         if output_amount > amount:
             amount = output_amount
