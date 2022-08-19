@@ -112,7 +112,7 @@ contract StrategyProxy {
         require(msg.sender == governance, "!governance");
         require(!voters[_voter], "already approved");
         voters[_voter] = true;
-        VoterApproved(_voter);
+        emit VoterApproved(_voter);
     }
 
     /// @notice Remove ability to vote on gauge weights
@@ -130,7 +130,7 @@ contract StrategyProxy {
         require(msg.sender == governance, "!governance");
         require(!lockers[_locker], "already approved");
         lockers[_locker] = true;
-        LockerApproved(_locker);
+        emit LockerApproved(_locker);
     }
 
     /// @notice Remove ability to max lock CRV
