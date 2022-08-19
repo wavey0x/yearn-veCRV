@@ -45,13 +45,13 @@ def __init__():
     self.name = "Zap Yearn CRV"
     self.admin = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
 
-    ERC20(YVECRV).approve(YCRV, MAX_UINT256)
-    ERC20(YCRV).approve(STYCRV, MAX_UINT256)
-    ERC20(YCRV).approve(POOL, MAX_UINT256)
-    ERC20(POOL).approve(LPYCRV, MAX_UINT256)
-    ERC20(CRV).approve(POOL, MAX_UINT256)
-    ERC20(CRV).approve(YCRV, MAX_UINT256)
-    ERC20(CVXCRV).approve(CVXCRVPOOL, MAX_UINT256)
+    assert ERC20(YVECRV).approve(YCRV, MAX_UINT256)
+    assert ERC20(YCRV).approve(STYCRV, MAX_UINT256)
+    assert ERC20(YCRV).approve(POOL, MAX_UINT256)
+    assert ERC20(POOL).approve(LPYCRV, MAX_UINT256)
+    assert ERC20(CRV).approve(POOL, MAX_UINT256)
+    assert ERC20(CRV).approve(YCRV, MAX_UINT256)
+    assert ERC20(CVXCRV).approve(CVXCRVPOOL, MAX_UINT256)
 
     self.legacy_tokens = [YVECRV, YVBOOST]
     self.output_tokens = [YCRV, STYCRV, LPYCRV]
@@ -65,8 +65,8 @@ def _convert_crv(amount: uint256) -> uint256:
         return IYCRV(YCRV).mint(amount)
 
 @internal
-def _lp(_amounts: uint256[2], _min_out: uint256, _recipient: address) -> uint256:
-    return Curve(POOL).add_liquidity(_amounts, _min_out)
+def _lp(_amounts: uint256[2]) -> uint256:
+    return Curve(POOL).add_liquidity(_amounts, 0)
 
 @internal
 def _convert_to_output(_output_token: address, amount: uint256, _min_out: uint256, _recipient: address) -> uint256:
@@ -76,7 +76,7 @@ def _convert_to_output(_output_token: address, amount: uint256, _min_out: uint25
         assert amount_out >= _min_out # dev: min out
         return amount_out
     assert _output_token == LPYCRV
-    amount_out: uint256 = Vault(LPYCRV).deposit(self._lp([0, amount], _min_out, _recipient))
+    amount_out: uint256 = Vault(LPYCRV).deposit(self._lp([0, amount]), _recipient)
     assert amount_out >= _min_out # dev: min out
     return amount_out
 
@@ -108,7 +108,7 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
         You can estimate the expected output amount by making an off-chain call to this contract's 
         "calc_expected_out" helper.
         Discount the result by some extra % to allow buffer, and set as _min_out.
-    @param _input_token Can be CRV, yveCRV, yvBOOST or any yCRV token address that user wishes to migrate from
+    @param _input_token Can be CRV, yveCRV, yvBOOST, cvxCRV or any yCRV token address that user wishes to migrate from
     @param _output_token The yCRV token address that user wishes to migrate to
     @param _amount_in Amount of input token to migrate, defaults to full balance
     @param _min_out The minimum amount of output token to receive
@@ -215,7 +215,7 @@ def relative_price(_input_token: address, _output_token: address, _amount_in: ui
         return amount * 10 ** 18 / Vault(STYCRV).pricePerShare()
     else:
         assert _output_token == LPYCRV
-        return amount * 10 ** 18 / Curve(POOL).get_virtual_price()
+        return amount * Vault(LPYCRV).pricePerShare() / Curve(POOL).get_virtual_price()
 
 @view
 @internal
