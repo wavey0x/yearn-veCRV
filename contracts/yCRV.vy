@@ -22,8 +22,8 @@ event Approval:
     spender: indexed(address)
     value: uint256
 
-event UpdateAdmin:
-    admin: indexed(address)
+event UpdateSweepRecipient:
+    sweep_recipient: indexed(address)
 
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52
@@ -36,14 +36,14 @@ balanceOf: public(HashMap[address, uint256])
 allowance: public(HashMap[address, HashMap[address, uint256]])
 totalSupply: public(uint256)
 burned: public(uint256)
-admin: public(address)
+sweep_recipient: public(address)
 
 @external
 def __init__():
     self.name = "Yearn CRV"
     self.symbol = "yCRV"
     self.decimals = 18
-    self.admin = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
+    self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
 
 @external
 def transfer(_to : address, _value : uint256) -> bool:
@@ -127,24 +127,24 @@ def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sende
     return amount
 
 @external
-def set_admin(_proposed_admin: address):
-    assert msg.sender == self.admin
-    self.admin = _proposed_admin
-    log UpdateAdmin(_proposed_admin)
+def set_sweep_recipient(_proposed_recipient: address):
+    assert msg.sender == self.sweep_recipient
+    self.sweep_recipient = _proposed_recipient
+    log UpdateSweepRecipient(_proposed_recipient)
 
 @external
 def sweep(_token: address, _amount: uint256 = MAX_UINT256):
-    assert msg.sender == self.admin
+    assert msg.sender == self.sweep_recipient
     assert _token != YVECRV
     amount: uint256 = _amount
     if amount == MAX_UINT256:
         amount = ERC20(_token).balanceOf(self)
     assert amount > 0
-    ERC20(_token).transfer(self.admin, amount)
+    ERC20(_token).transfer(self.sweep_recipient, amount)
 
 @external
 def sweep_yvecrv():
-    assert msg.sender == self.admin
+    assert msg.sender == self.sweep_recipient
     excess: uint256 = ERC20(YVECRV).balanceOf(self) - self.burned
     assert excess > 0
-    ERC20(YVECRV).transfer(self.admin, excess)
+    ERC20(YVECRV).transfer(self.sweep_recipient, excess)

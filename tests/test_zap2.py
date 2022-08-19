@@ -53,6 +53,7 @@ def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_c
                     actual = zap.zap(i, o, amount, r * .99, {'from': user}).return_value
             else:
                 actual = zap.zap(i, o, amount, r * .99, {'from': user}).return_value
+            assert_balances(zap, pool, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv)
             print_results(True,i, o, amount, r, s, actual)
 
     
@@ -120,3 +121,14 @@ def print_user_balances(user, yvLP, crv, yvboost, yveCrv, pool):
     print("yvBOOST:", yvboost.balanceOf(user)/1e18)
     print("yvLP:", yvLP.balanceOf(user)/1e18)
     print("----------\n")
+
+def assert_balances(zap, pool, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv):
+    assert ycrv.balanceOf(zap) == 0
+    assert crv.balanceOf(zap) == 0
+    assert yvboost.balanceOf(zap) == 0
+    assert yveCrv.balanceOf(zap) == 0
+    assert lp_ycrv.balanceOf(zap) == 0
+    assert st_ycrv.balanceOf(zap) == 0
+    assert cvxcrv.balanceOf(zap) == 0
+    assert ycrv.balanceOf(zap) == 0
+    assert pool.balanceOf(zap) == 0
