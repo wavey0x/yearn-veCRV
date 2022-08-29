@@ -215,7 +215,8 @@ def relative_price(_input_token: address, _output_token: address, _amount_in: ui
         return amount * 10 ** 18 / Vault(STYCRV).pricePerShare()
     else:
         assert _output_token == LPYCRV
-        return amount * Vault(LPYCRV).pricePerShare() / Curve(POOL).get_virtual_price()
+        lp_amount: uint256 = amount * 10 ** 18 / Curve(POOL).get_virtual_price()
+        return lp_amount * 10 ** 18 / Vault(LPYCRV).pricePerShare()
 
 @view
 @internal
