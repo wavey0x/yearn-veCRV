@@ -1,4 +1,4 @@
-# @version 0.3.3
+# @version 0.3.6
 
 from vyper.interfaces import ERC20
 from vyper.interfaces import ERC20Detailed
@@ -279,25 +279,10 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     lp_amount: uint256 = Curve(self.POOL).calc_token_amount([0, amount], True) # Deposit = True
     return lp_amount * 10 ** 18 / Vault(self.LPYCRV).pricePerShare()
 
-@internal
-def erc20_safe_transfer(token: address, receiver: address, amount: uint256):
-    # HACK: Used to handle non-compliant tokens like USDT
-    response: Bytes[32] = raw_call(
-        token,
-        concat(
-            method_id("transfer(address,uint256)"),
-            convert(receiver, bytes32),
-            convert(amount, bytes32),
-        ),
-        max_outsize=32,
-    )
-    if len(response) > 0:
-        assert convert(response, bool), "Transfer failed!"
-
 @external
 def sweep(_token: address, _amount: uint256 = MAX_UINT256):
     assert msg.sender == self.admin
     value: uint256 = _amount
     if value == MAX_UINT256:
         value = ERC20(_token).balanceOf(self)
-    self.erc20_safe_transfer(_token, self.admin, value)
+    assert ERC20(_token).transfer(self.admin, value, default_return_value=True)
