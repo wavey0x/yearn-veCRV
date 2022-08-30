@@ -198,11 +198,10 @@ def relative_price(_input_token: address, _output_token: address, _amount_in: ui
     
     if _amount_in == 0:
         return 0
+    amount: uint256 = _amount_in
     if _input_token == _output_token:
         return _amount_in
-
-    amount: uint256 = _amount_in
-    if _input_token == self.STYCRV:
+    elif _input_token == self.STYCRV:
         amount = Vault(self.STYCRV).pricePerShare() * amount / 10 ** 18
     elif _input_token == self.LPYCRV:
         lp_amount: uint256 = Vault(self.LPYCRV).pricePerShare() * amount / 10 ** 18
