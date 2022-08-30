@@ -21,8 +21,8 @@ interface Curve:
     def calc_token_amount(amounts: uint256[2], deposit: bool) -> uint256: view
     def calc_withdraw_one_coin(_burn_amount: uint256, i: int128, _previous: bool = False) -> uint256: view
 
-event UpdateAdmin:
-    admin: indexed(address)
+event UpdateSweepRecipient:
+    sweep_recipient: indexed(address)
 
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A # YVECRV
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52 # CRV
@@ -36,7 +36,7 @@ POOL: public(address)
 LPYCRV: public(address)
 
 name: public(String[32])
-admin: public(address)
+sweep_recipient: public(address)
 
 legacy_tokens: public(address[2])
 output_tokens: public(address[3])
@@ -44,7 +44,7 @@ output_tokens: public(address[3])
 @external
 def __init__(_YCRV: address, _STYCRV: address, _LPYCRV: address, _POOL: address):
     self.name = "Zap Yearn CRV"
-    self.admin = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
+    self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
     
     self.YCRV = _YCRV
     self.STYCRV = _STYCRV
@@ -154,10 +154,10 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
     return self._convert_to_output(_output_token, amount, _min_out, _recipient)
 
 @external
-def set_admin(_proposed_admin: address):
-    assert msg.sender == self.admin
-    self.admin = _proposed_admin
-    log UpdateAdmin(_proposed_admin)
+def set_sweep_recipient(_proposed_sweep_recipient: address):
+    assert msg.sender == self.sweep_recipient
+    self.sweep_recipient = _proposed_sweep_recipient
+    log UpdateSweepRecipient(_proposed_sweep_recipient)
 
 @view
 @internal
@@ -213,8 +213,8 @@ def relative_price(_input_token: address, _output_token: address, _amount_in: ui
         return amount * 10 ** 18 / Vault(self.STYCRV).pricePerShare()
     else:
         assert _output_token == self.LPYCRV
-        return amount * Vault(self.LPYCRV).pricePerShare() / Curve(self.POOL).get_virtual_price()
-
+        lp_amount: uint256 = amount * 10 ** 18 / Curve(self.POOL).get_virtual_price()
+        return lp_amount * 10 ** 18 / Vault(self.LPYCRV).pricePerShare()
 @view
 @internal
 def _calc_expected_out_from_legacy(_input_token: address, _output_token: address, _amount_in: uint256) -> uint256:
@@ -280,8 +280,8 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
 
 @external
 def sweep(_token: address, _amount: uint256 = MAX_UINT256):
-    assert msg.sender == self.admin
+    assert msg.sender == self.sweep_recipient
     value: uint256 = _amount
     if value == MAX_UINT256:
         value = ERC20(_token).balanceOf(self)
-    assert ERC20(_token).transfer(self.admin, value, default_return_value=True)
+    assert ERC20(_token).transfer(self.sweep_recipient, value, default_return_value=True)

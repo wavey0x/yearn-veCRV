@@ -1,4 +1,4 @@
-# @version 0.3.3
+# @version 0.3.6
 
 from vyper.interfaces import ERC20
 from vyper.interfaces import ERC20Detailed
@@ -140,7 +140,7 @@ def sweep(_token: address, _amount: uint256 = MAX_UINT256):
     if amount == MAX_UINT256:
         amount = ERC20(_token).balanceOf(self)
     assert amount > 0
-    ERC20(_token).transfer(self.sweep_recipient, amount)
+    assert ERC20(_token).transfer(self.sweep_recipient, amount, default_return_value=True)
 
 @external
 def sweep_yvecrv():

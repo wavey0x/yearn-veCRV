@@ -21,8 +21,8 @@ interface Curve:
     def calc_token_amount(amounts: uint256[2], deposit: bool) -> uint256: view
     def calc_withdraw_one_coin(_burn_amount: uint256, i: int128, _previous: bool = False) -> uint256: view
 
-event UpdateAdmin:
-    admin: indexed(address)
+event UpdateSweepRecipient:
+    sweep_recipient: indexed(address)
 
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A # YVECRV
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52 # CRV
@@ -35,7 +35,7 @@ CVXCRV: constant(address) =     0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7 # CVX
 CVXCRVPOOL: constant(address) = 0x9D0464996170c6B9e75eED71c68B99dDEDf279e8 # CVXCRVPOOL
 
 name: public(String[32])
-admin: public(address)
+sweep_recipient: public(address)
 
 legacy_tokens: public(address[2])
 output_tokens: public(address[3])
@@ -43,7 +43,7 @@ output_tokens: public(address[3])
 @external
 def __init__():
     self.name = "Zap Yearn CRV"
-    self.admin = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
+    self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
 
     assert ERC20(YVECRV).approve(YCRV, MAX_UINT256)
     assert ERC20(YCRV).approve(STYCRV, MAX_UINT256)
@@ -148,10 +148,10 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
     return self._convert_to_output(_output_token, amount, _min_out, _recipient)
 
 @external
-def set_admin(_proposed_admin: address):
-    assert msg.sender == self.admin
-    self.admin = _proposed_admin
-    log UpdateAdmin(_proposed_admin)
+def set_sweep_recipient(_proposed_sweep_recipient: address):
+    assert msg.sender == self.sweep_recipient
+    self.sweep_recipient = _proposed_sweep_recipient
+    log UpdateSweepRecipient(_proposed_sweep_recipient)
 
 @view
 @internal
@@ -275,8 +275,8 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
 
 @external
 def sweep(_token: address, _amount: uint256 = MAX_UINT256):
-    assert msg.sender == self.admin
+    assert msg.sender == self.sweep_recipient
     value: uint256 = _amount
     if value == MAX_UINT256:
         value = ERC20(_token).balanceOf(self)
-    assert ERC20(_token).transfer(self.admin, value, default_return_value=True)
+    assert ERC20(_token).transfer(self.sweep_recipient, value, default_return_value=True)
