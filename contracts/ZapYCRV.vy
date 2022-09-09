@@ -24,6 +24,9 @@ interface Curve:
 event UpdateSweepRecipient:
     sweep_recipient: indexed(address)
 
+event UpdateMintBuffer:
+    mint_buffer: uint256
+
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A # YVECRV
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52 # CRV
 YVBOOST: constant(address) =    0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a # YVBOOST
@@ -37,6 +40,7 @@ LPYCRV: public(address)
 
 name: public(String[32])
 sweep_recipient: public(address)
+mint_buffer: public(uint256)
 
 legacy_tokens: public(address[2])
 output_tokens: public(address[3])
@@ -45,6 +49,7 @@ output_tokens: public(address[3])
 def __init__(_YCRV: address, _STYCRV: address, _LPYCRV: address, _POOL: address):
     self.name = "Zap Yearn CRV"
     self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
+    self.mint_buffer = 50
     
     self.YCRV = _YCRV
     self.STYCRV = _STYCRV
@@ -65,6 +70,7 @@ def __init__(_YCRV: address, _STYCRV: address, _LPYCRV: address, _POOL: address)
 @internal
 def _convert_crv(amount: uint256) -> uint256:
     output_amount: uint256 = Curve(self.POOL).get_dy(0, 1, amount)
+    buffered_amount: uint256 = amount + (amount * self.mint_buffer / 10_000)
     if output_amount > amount:
         return Curve(self.POOL).exchange(0, 1, amount, 0)
     else:
@@ -285,3 +291,10 @@ def sweep(_token: address, _amount: uint256 = MAX_UINT256):
     if value == MAX_UINT256:
         value = ERC20(_token).balanceOf(self)
     assert ERC20(_token).transfer(self.sweep_recipient, value, default_return_value=True)
+
+@external
+def set_mint_buffer(_new_buffer: uint256):
+    assert msg.sender == self.sweep_recipient
+    assert _new_buffer < 500 # dev: buffer too high
+    self.mint_buffer = _new_buffer
+    log UpdateMintBuffer(_new_buffer)

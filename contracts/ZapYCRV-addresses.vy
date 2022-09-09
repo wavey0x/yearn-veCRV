@@ -24,6 +24,9 @@ interface Curve:
 event UpdateSweepRecipient:
     sweep_recipient: indexed(address)
 
+event UpdateMintBuffer:
+    mint_buffer: uint256
+
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A # YVECRV
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52 # CRV
 YVBOOST: constant(address) =    0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a # YVBOOST
@@ -36,6 +39,7 @@ CVXCRVPOOL: constant(address) = 0x9D0464996170c6B9e75eED71c68B99dDEDf279e8 # CVX
 
 name: public(String[32])
 sweep_recipient: public(address)
+mint_buffer: public(uint256)
 
 legacy_tokens: public(address[2])
 output_tokens: public(address[3])
@@ -44,6 +48,7 @@ output_tokens: public(address[3])
 def __init__():
     self.name = "Zap Yearn CRV"
     self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
+    self.mint_buffer = 50
 
     assert ERC20(YVECRV).approve(YCRV, MAX_UINT256)
     assert ERC20(YCRV).approve(STYCRV, MAX_UINT256)
@@ -59,7 +64,8 @@ def __init__():
 @internal
 def _convert_crv(amount: uint256) -> uint256:
     output_amount: uint256 = Curve(POOL).get_dy(0, 1, amount)
-    if output_amount > amount:
+    buffered_amount: uint256 = amount + (amount * self.mint_buffer / 10_000)
+    if output_amount > buffered_amount:
         return Curve(POOL).exchange(0, 1, amount, 0)
     else:
         return IYCRV(YCRV).mint(amount)
@@ -140,7 +146,6 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
         lp_amount: uint256 = Vault(LPYCRV).withdraw(amount)
         amount = Curve(POOL).remove_liquidity_one_coin(lp_amount, 1, 0)
 
-    # Phase 2: Convert YCRV to output token
     if _output_token == YCRV:
         assert amount >= _min_out # dev: min out
         ERC20(_output_token).transfer(_recipient, amount)
@@ -225,7 +230,7 @@ def _calc_expected_out_from_legacy(_input_token: address, _output_token: address
     elif _output_token == STYCRV:
         return amount * 10 ** 18 / Vault(STYCRV).pricePerShare()
     assert _output_token == LPYCRV
-    lp_amount: uint256 = Curve(POOL).calc_token_amount([0, amount], True) # Deposit = True
+    lp_amount: uint256 = Curve(POOL).calc_token_amount([0, amount], True)
     return lp_amount * 10 ** 18 / Vault(LPYCRV).pricePerShare()
 
 @view
@@ -257,7 +262,7 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     if amount == 0:
         return 0
     if _input_token == _output_token:
-        return amount # This will revert in .zap() function
+        return amount
 
     if _input_token == STYCRV:
         amount = Vault(STYCRV).pricePerShare() * amount / 10 ** 18
@@ -270,7 +275,7 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     elif _output_token == STYCRV:
         return amount * 10 ** 18 / Vault(STYCRV).pricePerShare()
     assert _output_token == LPYCRV
-    lp_amount: uint256 = Curve(POOL).calc_token_amount([0, amount], True) # Deposit = True
+    lp_amount: uint256 = Curve(POOL).calc_token_amount([0, amount], True)
     return lp_amount * 10 ** 18 / Vault(LPYCRV).pricePerShare()
 
 @external
@@ -280,3 +285,10 @@ def sweep(_token: address, _amount: uint256 = MAX_UINT256):
     if value == MAX_UINT256:
         value = ERC20(_token).balanceOf(self)
     assert ERC20(_token).transfer(self.sweep_recipient, value, default_return_value=True)
+
+@external
+def set_mint_buffer(_new_buffer: uint256):
+    assert msg.sender == self.sweep_recipient
+    assert _new_buffer < 500 # dev: buffer too high
+    self.mint_buffer = _new_buffer
+    log UpdateMintBuffer(_new_buffer)
