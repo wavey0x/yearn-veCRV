@@ -243,7 +243,7 @@ contract StrategyProxy {
     /// @param _recipient The address to which we transfer 3CRV
     function claim(address _recipient) external {
         require(msg.sender == feeRecipient, "!approved");
-        if (now < lastTimeCursor.add(week)) return;
+        if (!claimable()) return;
 
         address p = address(proxy);
         feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
@@ -256,10 +256,8 @@ contract StrategyProxy {
         }
     }
 
-    /// @notice Amount of admin fees available for claim
-    /// @dev Admin fees become available every Thursday, so we run this expensive logic only once per week.
-    /// @return bool True if enough time has passed
-    function claimable() external view returns (bool) {
+    /// @notice Check if it has been one week since last admin fee claim
+    function claimable() public view returns (bool) {
         if (now < lastTimeCursor.add(week)) return false;
         return true;
     }
