@@ -44,7 +44,7 @@ def test_sweep(ycrv, yveCrv, crv, whale_yvecrv, user, gov, accounts):
         ycrv.sweep_yvecrv({'from':ycrv.admin()})
     yveCrv.transfer(ycrv, 1e18,{'from':whale_yvecrv})
     bal_before = yveCrv.balanceOf(gov)
-    ycrv.sweep_yvecrv({'from':ycrv.admin()})
+    ycrv.sweep_yvecrv({'from':ycrv.sweep_recipient()})
     yveCrv.balanceOf(gov) > bal_before
 
 def test_user_no_balance(ycrv, yveCrv, crv, whale_yvecrv, gov, accounts):
