@@ -20,8 +20,12 @@ library SafeProxy {
         bytes memory data
     ) internal {
         (bool success, ) = proxy.execute(to, value, data);
-        if (!success) assert(false);
+        require(success);
     }
+}
+
+interface VeCRV {
+    function increase_unlock_time(uint256 _time) external;
 }
 
 contract StrategyProxy {
@@ -39,10 +43,11 @@ contract StrategyProxy {
     address public constant CRV3 = address(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
     address public feeRecipient = address(0xc5bDdf9843308380375a611c18B50Fb9341f502A); // Default value is yveCRV
     FeeDistribution public constant feeDistribution = FeeDistribution(0xA464e6DCda8AC41e03616F95f4BC98a13b8922Dc);
-
+    VeCRV public constant veCRV  = VeCRV(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
     // gauge => strategies
     mapping(address => address) public strategies;
     mapping(address => bool) public voters;
+    mapping(address => bool) public lockers;
     address public governance;
 
     uint256 public lastTimeCursor;
@@ -54,6 +59,8 @@ contract StrategyProxy {
     event StrategyRevoked(address gauge);
     event VoterApproved(address voter);
     event VoterRevoked(address voter);
+    event LockerApproved(address locker);
+    event LockerRevoked(address locker);
     event AdminFeesClaimed(address _recipient, uint256 amount);
 
     constructor() public {
@@ -105,7 +112,7 @@ contract StrategyProxy {
         require(msg.sender == governance, "!governance");
         require(!voters[_voter], "already approved");
         voters[_voter] = true;
-        VoterApproved(_voter);
+        emit VoterApproved(_voter);
     }
 
     /// @notice Remove ability to vote on gauge weights
@@ -117,6 +124,24 @@ contract StrategyProxy {
         emit VoterRevoked(_voter);
     }
 
+    /// @notice Approve an address for voting on gauge weights
+    /// @param _locker Voter to add
+    function approveLocker(address _locker) external {
+        require(msg.sender == governance, "!governance");
+        require(!lockers[_locker], "already approved");
+        lockers[_locker] = true;
+        emit LockerApproved(_locker);
+    }
+
+    /// @notice Remove ability to max lock CRV
+    /// @param _locker Locker to remove
+    function revokeLocker(address _locker) external {
+        require(msg.sender == governance, "!governance");
+        require(lockers[_locker], "already revoked");
+        lockers[_locker] = false;
+        emit LockerRevoked(_locker);
+    }
+
     /// @notice Lock CRV into veCRV contract
     /// @dev Permissionless, anyone is encouraged to call it when CRV is available to lock
     function lock() external {
@@ -124,11 +149,21 @@ contract StrategyProxy {
         if (amount > 0) proxy.increaseAmount(amount);
     }
 
+    /// @notice Extend veCRV lock time to maximum amount of 4 years.
+    function maxLock() external {
+        require(msg.sender == governance || lockers[msg.sender], "!locker");
+        proxy.safeExecute(
+            address(veCRV), 
+            0, 
+            abi.encodeWithSignature("increase_unlock_time(uint256)", now + (365 days * 4))
+        );
+    }
+
     /// @notice Vote on a gauge
     /// @param _gauge The gauge to vote on
     /// @param _weight Weight to vote with
     function vote(address _gauge, uint256 _weight) external {
-        require(voters[msg.sender], "!voter");
+        require(msg.sender == governance || voters[msg.sender], "!voter");
         _vote(_gauge, _weight);
     }
 
@@ -136,7 +171,7 @@ contract StrategyProxy {
     /// @param _gauges List of gauges to vote on
     /// @param _weights List of weight to vote with
     function vote_many(address[] calldata _gauges, uint256[] calldata _weights) external {
-        require(voters[msg.sender], "!voter");
+        require(msg.sender == governance || voters[msg.sender], "!voter");
         require(_gauges.length == _weights.length, "!mismatch");
         for(uint256 i = 0; i < _gauges.length; i++) {
             _vote(_gauges[i], _weights[i]);
