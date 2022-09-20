@@ -92,7 +92,7 @@ contract StrategyProxy {
     /// @param _strategy Strategy to approve on gauge
     function approveStrategy(address _gauge, address _strategy) external {
         require(msg.sender == governance, "!governance");
-        require(_gauge != address(0), "disallow zero");
+        require(_strategy != address(0), "disallow zero");
         require(strategies[_gauge] != _strategy, "already approved");
         strategies[_gauge] = _strategy;
         emit StrategyApproved(_gauge, _strategy);
