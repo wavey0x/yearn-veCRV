@@ -30,10 +30,10 @@ event UpdateMintBuffer:
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A # YVECRV
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52 # CRV
 YVBOOST: constant(address) =    0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a # YVBOOST
-YCRV: constant(address) =       0x0000000000000000000000000000000000000000 # YCRV
-STYCRV: constant(address) =     0x0000000000000000000000000000000000000000 # ST-YCRV
-LPYCRV: constant(address) =     0x0000000000000000000000000000000000000000 # LP-YCRV
-POOL: constant(address) =       0x0000000000000000000000000000000000000000 # POOL
+YCRV: constant(address) =       0x4c1317326fD8EFDeBdBE5e1cd052010D97723bd6 # YCRV
+STYCRV: constant(address) =     0x8a0889d47f9Aa0Fac1cC718ba34E26b867437880 # ST-YCRV
+LPYCRV: constant(address) =     0x61f46C65E403429266e8b569F23f70dD75d9BeE7 # LP-YCRV
+POOL: constant(address) =       0x0309A528bBa0394dC4A2Ce59123C52E317A54604 # POOL
 CVXCRV: constant(address) =     0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7 # CVXCRV
 CVXCRVPOOL: constant(address) = 0x9D0464996170c6B9e75eED71c68B99dDEDf279e8 # CVXCRVPOOL
 
@@ -46,7 +46,7 @@ output_tokens: public(address[3])
 
 @external
 def __init__():
-    self.name = "Zap Yearn CRV"
+    self.name = "Zap: YCRV v1"
     self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
     self.mint_buffer = 50
 
