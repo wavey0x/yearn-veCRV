@@ -131,7 +131,7 @@ def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sende
 def burn_deprecated_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender) -> uint256:
     """
     @dev burn an amount of deprecated yCRV token and mint canonical yCRV token 1 to 1.
-    @param _amount The amount of yveCRV to burn and yCRV to mint.
+    @param _amount The amount of deprecated yCRV to burn and canonical yCRV to mint.
     @param _recipient The address which minted tokens should be received at.
     """
     assert _recipient not in [self, ZERO_ADDRESS]
