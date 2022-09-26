@@ -119,7 +119,7 @@ contract Strategy is BaseStrategy {
         }
 
         if (
-            assets.add(profitTreshold) <= debt ||
+            assets.add(profitThreshold) <= debt ||
             IVoterProxy(proxy).claimable()            
         ) return true;
 
@@ -162,10 +162,8 @@ contract Strategy is BaseStrategy {
         shouldClaim = !shouldClaim;
     }
 
-    function setProfitTreshold(
-        bool _profitTreshold
-    ) external onlyVaultManagers {
-        profitTreshold = _profitTreshold;
+    function setProfitThreshold(uint _profitThreshold) external onlyVaultManagers {
+        profitThreshold = _profitThreshold;
     }
 
     // internal helpers

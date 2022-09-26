@@ -1,4 +1,4 @@
-# yvCRV + yvBOOST Re-Design
+# yCRV
 
 ## Overview
 - 3CRV rewards to be routed to the active st-yCRV strategy
