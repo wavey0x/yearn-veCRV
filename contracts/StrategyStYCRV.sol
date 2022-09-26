@@ -1,48 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Feel free to change the license, but this is what we use
 
-// Feel free to change this version of Solidity. We support >=0.6.0 <0.7.0;
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-// These are the core Yearn libraries
-import {
-    BaseStrategy
-} from "@yearnvaults/contracts/BaseStrategy.sol";
-import {
-    SafeERC20,
-    SafeMath,
-    IERC20,
-    Address
-} from "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
+import { BaseStrategy } from "@yearnvaults/contracts/BaseStrategy.sol";
+import {SafeERC20, SafeMath, IERC20, Address} from "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
 
 
 interface ITradeFactory {
     function enable(address, address) external;
-}
-interface ISwap {
-    function getAmountsOut(
-        uint amountIn,
-        address[] memory path
-    )
-    external view returns (
-        uint[] memory amounts
-    );
 }
 
 interface IVoterProxy {
     function lock() external;
     function claim(address _recipient) external;
     function claimable() external view returns (bool);
-}
-
-interface IyveCRV {
-    function claimable(address) external view returns(uint256);
-    function supplyIndex(address) external view returns(uint256);
-    function balanceOf(address) external view returns(uint256);
-    function index() external view returns(uint256);
-    function claim() external;
-    function depositAll() external;
 }
 
 interface IBaseFee {
@@ -58,6 +31,7 @@ contract Strategy is BaseStrategy {
     using Address for address;
     using SafeMath for uint256;
 
+    uint profitThreshold = 5_000e18;
     address public tradeFactory;
     address public proxy;
     address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
@@ -71,7 +45,7 @@ contract Strategy is BaseStrategy {
     }
 
     function name() external view override returns (string memory) {
-        return "StrategyYearnVECRV";
+        return "StrategyStYCRV";
     }
 
     function estimatedTotalAssets() public view override returns (uint256) {
@@ -93,9 +67,7 @@ contract Strategy is BaseStrategy {
             (_debtPayment, ) = liquidatePosition(_debtOutstanding);
         }
 
-        if (shouldClaim && IVoterProxy(proxy).claimable()) {
-            _claim();
-        }
+        _claim();
 
         uint256 debt = vault.strategies(address(this)).totalDebt;
         uint256 assets = estimatedTotalAssets();
@@ -141,30 +113,26 @@ contract Strategy is BaseStrategy {
         // harvest if we have a profit to claim at our upper limit without considering gas price
         uint256 debt = vault.strategies(address(this)).totalDebt;
         uint256 assets = estimatedTotalAssets();
-        if (assets <= debt){
-            return false;
-        }
 
-        // check if the base fee gas price is higher than we allow. if it is, block harvests.
         if (!isBaseFeeAcceptable()) {
             return false;
         }
 
-        return super.harvestTrigger(ethToWant(callCostinEth));
+        if (
+            assets.add(profitTreshold) <= debt ||
+            IVoterProxy(proxy).claimable()            
+        ) return true;
+
+        return false;
     }
 
+    // We don't need this anymore since we don't use baseStrategy harvestTrigger
     function ethToWant(uint256 _amtInWei)
         public
         view
         virtual
         returns (uint256)
-    {
-        ISwap sushiRouter = ISwap(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
-        address[] memory path = new address[](2);
-        path[0] = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
-        path[1] = address(0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a); // yvBOOST
-        return sushiRouter.getAmountsOut(_amtInWei, path)[1];
-    }
+    {}
 
     function claim() public onlyVaultManagers {
         _claim();
@@ -194,6 +162,12 @@ contract Strategy is BaseStrategy {
         shouldClaim = !shouldClaim;
     }
 
+    function setProfitTreshold(
+        bool _profitTreshold
+    ) external onlyVaultManagers {
+        profitTreshold = _profitTreshold;
+    }
+
     // internal helpers
     function protectedTokens()
         internal
@@ -220,6 +194,7 @@ contract Strategy is BaseStrategy {
         _removeTradeFactoryPermissions();
 
     }
+
     function _removeTradeFactoryPermissions() internal {
         crv3.safeApprove(tradeFactory, 0);
         tradeFactory = address(0);

@@ -2,9 +2,9 @@ import math, time, brownie
 from brownie import Contract
 
 
-def test_proxy(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vault, 
+def test_proxy(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vault, fee_distributor, 
     strategy, strategist, amount, user, crv3, chain, whale_3crv, gov):
-    new_proxy
+    WEEK = 60 * 60 * 24 * 7
     locker = accounts[2]
     new_proxy.approveLocker(locker,{'from':gov})
     vecrv = Contract(new_proxy.veCRV())
@@ -30,13 +30,22 @@ def test_proxy(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vaul
     with brownie.reverts("!voter"):
         new_proxy.vote(gauge,0, {'from':voter})
     
-    voter = locker
-    tx = new_proxy.approveVoter(voter,{'from':gov})
-    assert tx.events['VoterApproved']['voter'] == voter
-    new_proxy.vote(gauge,0, {'from':voter})
+    voter_user = locker
+    tx = new_proxy.approveVoter(voter_user,{'from':gov})
+    assert tx.events['VoterApproved']['voter'] == voter_user
+    new_proxy.vote(gauge,0, {'from':voter_user})
     
-    tx = new_proxy.revokeVoter(voter,{'from':gov})
-    assert tx.events['VoterRevoked']['voter'] == voter
+    tx = new_proxy.revokeVoter(voter_user,{'from':gov})
+    assert tx.events['VoterRevoked']['voter'] == voter_user
 
     with brownie.reverts("!voter"):
-        new_proxy.vote(gauge,0, {'from':voter})
+        new_proxy.vote(gauge,0, {'from':voter_user})
+
+    crv3.transfer(fee_distributor, 100_000e18, {'from':whale_3crv})
+    chain.sleep(WEEK)
+    chain.mine()
+    y = accounts.at(new_proxy.feeRecipient(),force=True)
+    admin = accounts.at(fee_distributor.admin(),force=True)
+    fee_distributor.checkpoint_token({'from':admin})
+    tx = new_proxy.claim(new_proxy,{'from':y})
+    assert False

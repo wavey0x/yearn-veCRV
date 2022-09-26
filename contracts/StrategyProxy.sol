@@ -7,10 +7,10 @@ import "@openzeppelinV3/contracts/math/SafeMath.sol";
 import "@openzeppelinV3/contracts/utils/Address.sol";
 import "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
 
-import "../../interfaces/yearn/IProxy.sol";
-import "../../interfaces/curve/Mintr.sol";
-import "../../interfaces/curve/FeeDistribution.sol";
-import "../../interfaces/curve/Gauge.sol";
+import "../interfaces/yearn/IProxy.sol";
+import "../interfaces/curve/Mintr.sol";
+import "../interfaces/curve/FeeDistribution.sol";
+import "../interfaces/curve/Gauge.sol";
 
 library SafeProxy {
     function safeExecute(

@@ -249,19 +249,24 @@ def voter():
 
 @pytest.fixture
 def new_proxy(strategy, yveCrv, strategist, gov, voter):
-    p = strategist.deploy(StrategyProxy)
-    # Set up new proxy
-    p.setGovernance(gov)
-    p.setFeeRecipient(strategy, {"from": gov})
-    voter.setStrategy(p, {"from": gov})
-    strategy.setProxy(p, {"from": gov})
-    yveCrv.setProxy(p, {"from": gov})
-    yveCrv.setFeeDistribution(ZERO_ADDRESS, {"from": gov})
-    yield p
+    yield Contract(web3.ens.resolve('curve-proxy.ychad.eth'))
+    # p = strategist.deploy(StrategyProxy)
+    # # Set up new proxy
+    # p.setGovernance(gov)
+    # p.setFeeRecipient(strategy, {"from": gov})
+    # voter.setStrategy(p, {"from": gov})
+    # strategy.setProxy(p, {"from": gov})
+    # yveCrv.setProxy(p, {"from": gov})
+    # yveCrv.setFeeDistribution(ZERO_ADDRESS, {"from": gov})
+    # yield p
 
 @pytest.fixture
 def yveCrv(token):
     yield token
+
+@pytest.fixture
+def fee_distributor(token):
+    yield Contract('0xA464e6DCda8AC41e03616F95f4BC98a13b8922Dc')
 
 
 @pytest.fixture
