@@ -20,7 +20,7 @@ compiler:
       - "@openzeppelinV2=OpenZeppelin/openzeppelin-contracts@2.5.1"
       - "@openzeppelinV3=OpenZeppelin/openzeppelin-contracts@3.1.0"
       - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@3.1.0"
-      - "@yearnvaults=iearn-finance/yearn-vaults@0.3.5-2"
+      - "@yearnvaults=iearn-finance/yearn-vaults@0.4.3"
       
 reports:
   exclude_contracts:

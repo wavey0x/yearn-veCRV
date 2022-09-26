@@ -36,7 +36,7 @@ contract Strategy is BaseStrategy {
     address public proxy;
     address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
     IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
-    bool public shouldClaim = true;
+    bool public doClaim = true;
 
     constructor(address _vault) BaseStrategy(_vault) public {
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012;
@@ -67,7 +67,8 @@ contract Strategy is BaseStrategy {
             (_debtPayment, ) = liquidatePosition(_debtOutstanding);
         }
 
-        _claim();
+        // doClaim is a toggle which allows us to bypass claim logic if it is reverting
+        if (doClaim) _claim();
 
         uint256 debt = vault.strategies(address(this)).totalDebt;
         uint256 assets = estimatedTotalAssets();
@@ -119,7 +120,7 @@ contract Strategy is BaseStrategy {
         }
 
         if (
-            assets.add(profitThreshold) <= debt ||
+            assets >= debt.add(profitThreshold) ||
             IVoterProxy(proxy).claimable()            
         ) return true;
 
@@ -131,8 +132,13 @@ contract Strategy is BaseStrategy {
         public
         view
         virtual
+        override
         returns (uint256)
     {}
+
+    function liquidateAllPositions() internal override returns (uint256) {
+        return want.balanceOf(address(this));
+    }
 
     function claim() public onlyVaultManagers {
         _claim();
@@ -158,8 +164,8 @@ contract Strategy is BaseStrategy {
         proxy = _proxy;
     }
 
-    function toggleShouldClaim() external onlyKeepers {
-        shouldClaim = !shouldClaim;
+    function setDoClaim(bool _doClaim) external onlyEmergencyAuthorized {
+        doClaim = _doClaim;
     }
 
     function setProfitThreshold(uint _profitThreshold) external onlyVaultManagers {
