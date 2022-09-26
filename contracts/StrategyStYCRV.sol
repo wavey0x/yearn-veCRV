@@ -36,7 +36,7 @@ contract Strategy is BaseStrategy {
     address public proxy;
     address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
     IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
-    bool public doClaim = true;
+    bool public ignoreClaim;
 
     constructor(address _vault) BaseStrategy(_vault) public {
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012;
@@ -68,7 +68,7 @@ contract Strategy is BaseStrategy {
         }
 
         // doClaim is a toggle which allows us to bypass claim logic if it is reverting
-        if (doClaim) _claim();
+        if (!ignoreClaim) _claim();
 
         uint256 debt = vault.strategies(address(this)).totalDebt;
         uint256 assets = estimatedTotalAssets();
@@ -164,8 +164,9 @@ contract Strategy is BaseStrategy {
         proxy = _proxy;
     }
 
-    function setDoClaim(bool _doClaim) external onlyEmergencyAuthorized {
-        doClaim = _doClaim;
+    // @dev Set true to ignore 3CRV claim from proxy. This allows us to bypass a revert if necessary.
+    function setIgnoreClaim(bool _ignoreClaim) external onlyEmergencyAuthorized {
+        ignoreClaim = _ignoreClaim;
     }
 
     function setProfitThreshold(uint _profitThreshold) external onlyVaultManagers {
