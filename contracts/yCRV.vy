@@ -1,4 +1,4 @@
-# @version 0.3.6
+# @version 0.3.3
 
 from vyper.interfaces import ERC20
 from vyper.interfaces import ERC20Detailed
@@ -25,9 +25,10 @@ event Approval:
 event UpdateSweepRecipient:
     sweep_recipient: indexed(address)
 
-YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A
-CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52
-VOTER: constant(address) =      0xF147b8125d2ef93FB6965Db97D6746952a133934
+YVECRV: constant(address) =             0xc5bDdf9843308380375a611c18B50Fb9341f502A
+DEPRECATED_YCRV: constant(address) =   0x4c1317326fD8EFDeBdBE5e1cd052010D97723bd6
+CRV: constant(address) =                0xD533a949740bb3306d119CC777fa900bA034cd52
+VOTER: constant(address) =              0xF147b8125d2ef93FB6965Db97D6746952a133934
 name: public(String[32])
 symbol: public(String[32])
 decimals: public(uint8)
@@ -127,20 +128,53 @@ def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sende
     return amount
 
 @external
+def burn_deprecated_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender) -> uint256:
+    """
+    @dev burn an amount of deprecated yCRV token and mint canonical yCRV token 1 to 1.
+    @param _amount The amount of deprecated yCRV to burn and canonical yCRV to mint.
+    @param _recipient The address which minted tokens should be received at.
+    """
+    assert _recipient not in [self, ZERO_ADDRESS]
+    amount: uint256 = _amount
+    if amount == MAX_UINT256:
+        amount = ERC20(DEPRECATED_YCRV).balanceOf(msg.sender)
+    assert amount > 0
+    assert ERC20(DEPRECATED_YCRV).transferFrom(msg.sender, self, amount)  # dev: no allowance
+    self._mint(_recipient, amount)
+    log Mint(msg.sender, _recipient, False, amount) # dev: We won't count this as a 'burn' since it is a special case
+    return amount
+
+@external
 def set_sweep_recipient(_proposed_recipient: address):
     assert msg.sender == self.sweep_recipient
     self.sweep_recipient = _proposed_recipient
     log UpdateSweepRecipient(_proposed_recipient)
 
+@internal
+def erc20_safe_transfer(token: address, receiver: address, amount: uint256):
+    # HACK: Used to handle non-compliant tokens like USDT
+    response: Bytes[32] = raw_call(
+        token,
+        concat(
+            method_id("transfer(address,uint256)"),
+            convert(receiver, bytes32),
+            convert(amount, bytes32),
+        ),
+        max_outsize=32,
+    )
+    if len(response) > 0:
+        assert convert(response, bool), "Transfer failed!"
+
 @external
 def sweep(_token: address, _amount: uint256 = MAX_UINT256):
     assert msg.sender == self.sweep_recipient
     assert _token != YVECRV
+    assert _token != DEPRECATED_YCRV
     amount: uint256 = _amount
     if amount == MAX_UINT256:
         amount = ERC20(_token).balanceOf(self)
     assert amount > 0
-    assert ERC20(_token).transfer(self.sweep_recipient, amount, default_return_value=True)
+    self.erc20_safe_transfer(_token, self.sweep_recipient, amount)
 
 @external
 def sweep_yvecrv():
