@@ -26,7 +26,7 @@ event UpdateSweepRecipient:
     sweep_recipient: indexed(address)
 
 YVECRV: constant(address) =             0xc5bDdf9843308380375a611c18B50Fb9341f502A
-DEPCRECATED_YCRV: constant(address) =   0x4c1317326fD8EFDeBdBE5e1cd052010D97723bd6
+DEPRECATED_YCRV: constant(address) =   0x4c1317326fD8EFDeBdBE5e1cd052010D97723bd6
 CRV: constant(address) =                0xD533a949740bb3306d119CC777fa900bA034cd52
 VOTER: constant(address) =              0xF147b8125d2ef93FB6965Db97D6746952a133934
 name: public(String[32])
@@ -137,11 +137,11 @@ def burn_deprecated_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address 
     assert _recipient not in [self, ZERO_ADDRESS]
     amount: uint256 = _amount
     if amount == MAX_UINT256:
-        amount = ERC20(DEPCRECATED_YCRV).balanceOf(msg.sender)
+        amount = ERC20(DEPRECATED_YCRV).balanceOf(msg.sender)
     assert amount > 0
-    assert ERC20(DEPCRECATED_YCRV).transferFrom(msg.sender, self, amount)  # dev: no allowance
+    assert ERC20(DEPRECATED_YCRV).transferFrom(msg.sender, self, amount)  # dev: no allowance
     self._mint(_recipient, amount)
-    log Mint(msg.sender, _recipient, False, amount)
+    log Mint(msg.sender, _recipient, False, amount) # dev: We won't count this as a 'burn' since it is a special case
     return amount
 
 @external
@@ -169,7 +169,7 @@ def erc20_safe_transfer(token: address, receiver: address, amount: uint256):
 def sweep(_token: address, _amount: uint256 = MAX_UINT256):
     assert msg.sender == self.sweep_recipient
     assert _token != YVECRV
-    assert _token != DEPCRECATED_YCRV
+    assert _token != DEPRECATED_YCRV
     amount: uint256 = _amount
     if amount == MAX_UINT256:
         amount = ERC20(_token).balanceOf(self)
