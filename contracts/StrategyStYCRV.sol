@@ -35,6 +35,7 @@ contract Strategy is BaseStrategy {
     address public tradeFactory;
     address public proxy;
     address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
+    address[] public tfTokenList;
     IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
     bool public ignoreClaim;
 
@@ -67,7 +68,7 @@ contract Strategy is BaseStrategy {
             (_debtPayment, ) = liquidatePosition(_debtOutstanding);
         }
 
-        // doClaim is a toggle which allows us to bypass claim logic if it is reverting
+        // ignoreClaim is a toggle which allows us to bypass claim logic if it is reverting
         if (!ignoreClaim) _claim();
 
         uint256 debt = vault.strategies(address(this)).totalDebt;
@@ -140,7 +141,7 @@ contract Strategy is BaseStrategy {
         return want.balanceOf(address(this));
     }
 
-    function claim() public onlyVaultManagers {
+    function claim() external {
         _claim();
     }
 
@@ -187,21 +188,40 @@ contract Strategy is BaseStrategy {
         if (tradeFactory != address(0)) {
             _removeTradeFactoryPermissions();
         }
-
-        // approve and set up trade factory
-        crv3.safeApprove(_tradeFactory, type(uint256).max);
-        ITradeFactory tf = ITradeFactory(_tradeFactory);
-        tf.enable(address(crv3), address(want));
         tradeFactory = _tradeFactory;
+    }
+
+    function setTradeFactory(address _tradeFactory, address[] calldata _tokens) external onlyGovernance {
+        if (tradeFactory != address(0)) {
+            _removeTradeFactoryPermissions();
+        }
+        tradeFactory = _tradeFactory;
+        ITradeFactory tf = ITradeFactory(_tradeFactory);
+        uint length = _tokens.length;
+        for(uint i=0; i < length; i++){
+            IERC20 token = IERC20(_tokens[i]);
+            token.safeApprove(tradeFactory, type(uint).max);
+            tf.enable(_tokens[i], address(want));
+        }
+    }
+
+    function approveTokenForTradeFactory(address _token) external onlyGovernance {
+        IERC20(_token).safeApprove(tradeFactory, type(uint).max);
+        tfTokenList.push(_token);
+        ITradeFactory(tradeFactory).enable(_token, address(want));
     }
 
     function removeTradeFactoryPermissions() external onlyVaultManagers {
         _removeTradeFactoryPermissions();
-
     }
 
     function _removeTradeFactoryPermissions() internal {
-        crv3.safeApprove(tradeFactory, 0);
         tradeFactory = address(0);
+        uint length = tfTokenList.length;
+        for(uint i=0; i < length; i++){
+            IERC20 token = IERC20(tfTokenList[i]);
+            token.safeApprove(tradeFactory, 0);
+        }
+        delete tfTokenList;
     }
 }

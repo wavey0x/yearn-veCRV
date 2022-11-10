@@ -26,6 +26,7 @@ library SafeProxy {
 
 interface VeCRV {
     function increase_unlock_time(uint256 _time) external;
+    function locked__end(address user) external returns (uint);
 }
 
 contract StrategyProxy {
@@ -34,7 +35,7 @@ contract StrategyProxy {
     using SafeMath for uint256;
     using SafeProxy for IProxy;
 
-    uint256 private constant week = 604800; // Number of seconds in a week
+    uint256 private constant WEEK = 604800; // Number of seconds in a week
     IProxy public constant proxy = IProxy(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Refer to this as "voter" contract
     address public constant mintr = address(0xd061D61a4d941c39E5453435B6345Dc261C2fcE0);
     address public constant crv = address(0xD533a949740bb3306d119CC777fa900bA034cd52);
@@ -46,6 +47,7 @@ contract StrategyProxy {
     VeCRV public constant veCRV  = VeCRV(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
     // gauge => strategies
     mapping(address => address) public strategies;
+    mapping(address => address) public rewardAdapters;
     mapping(address => bool) public voters;
     mapping(address => bool) public lockers;
     address public governance;
@@ -56,12 +58,14 @@ contract StrategyProxy {
     event GovernanceSet(address governance);
     event FeeRecipientSet(address feeRecipient);
     event StrategyApproved(address gauge, address strategy);
-    event StrategyRevoked(address gauge);
+    event StrategyRevoked(address gauge, address strategy);
     event VoterApproved(address voter);
     event VoterRevoked(address voter);
     event LockerApproved(address locker);
     event LockerRevoked(address locker);
-    event AdminFeesClaimed(address _recipient, uint256 amount);
+    event AdminFeesClaimed(address recipient, uint256 amount);
+    event RewardAdapterApproved(address adapter, address token);
+    event RewardAdapterRevoked(address adapter, address token);
 
     constructor() public {
         governance = msg.sender;
@@ -102,9 +106,31 @@ contract StrategyProxy {
     /// @param _gauge Gauge from which to remove strategy
     function revokeStrategy(address _gauge) external {
         require(msg.sender == governance, "!governance");
-        require(strategies[_gauge] != address(0), "already revoked");
+        address _strategy = strategies[_gauge];
+        require(_strategy != address(0), "already revoked");
         strategies[_gauge] = address(0);
-        emit StrategyRevoked(_gauge);
+        emit StrategyRevoked(_gauge, _strategy);
+    }
+
+    /// @notice Add an adapter to a rewards token
+    /// @param _token Token to permit adapter on
+    /// @param _adapter Adapter to approve for token
+    function approveAdapter(address _token, address _adapter) external {
+        require(msg.sender == governance, "!governance");
+        require(_adapter != address(0), "disallow zero");
+        require(rewardAdapters[_token] != _adapter, "already approved");
+        rewardAdapters[_token] = _adapter;
+        emit RewardAdapterApproved(_adapter, _token);
+    }
+
+    /// @notice Clear any previously approved adapter from token
+    /// @param _token from which to remove strategy adapter
+    function revokeAdapter(address _token) external {
+        require(msg.sender == governance, "!governance");
+        address adapter = rewardAdapters[_token];
+        require(adapter != address(0), "already revoked");
+        rewardAdapters[_token] = address(0);
+        emit RewardAdapterRevoked(adapter, _token);
     }
 
     /// @notice Approve an address for voting on gauge weights
@@ -153,11 +179,15 @@ contract StrategyProxy {
     /// @notice Extend veCRV lock time to maximum amount of 4 years.
     function maxLock() external {
         require(msg.sender == governance || lockers[msg.sender], "!locker");
-        proxy.safeExecute(
-            address(veCRV), 
-            0, 
-            abi.encodeWithSignature("increase_unlock_time(uint256)", now + (365 days * 4))
-        );
+        uint max = now + (365 days * 4);
+        uint lock_end = veCRV.locked__end(address(proxy));
+        if(lock_end < (max / WEEK) * WEEK){
+            proxy.safeExecute(
+                address(veCRV), 
+                0, 
+                abi.encodeWithSignature("increase_unlock_time(uint256)", max)
+            );
+        }
     }
 
     /// @notice Vote on a gauge
@@ -239,6 +269,15 @@ contract StrategyProxy {
         proxy.safeExecute(crv, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, _balance));
     }
 
+    function claimRewardsToken(address _token) external {
+        address adapter = rewardAdapters[_token];
+        require(msg.sender == adapter || msg.sender == governance);
+        uint256 _balance = IERC20(_token).balanceOf(address(proxy));
+        if (_balance > 0) {
+            proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, _balance));
+        }
+    }
+
     /// @notice Claim share of weekly admin fees from Curve fee distributor
     /// @dev Admin fees become available every Thursday, so we run this expensive logic only once per week.
     /// @param _recipient The address to which we transfer 3CRV
@@ -259,7 +298,7 @@ contract StrategyProxy {
 
     /// @notice Check if it has been one week since last admin fee claim
     function claimable() public view returns (bool) {
-        if (now < lastTimeCursor.add(week)) return false;
+        if (now < lastTimeCursor.add(WEEK)) return false;
         return true;
     }
 

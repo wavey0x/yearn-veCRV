@@ -1,4 +1,4 @@
-# @version 0.3.6
+# @version 0.3.7
 
 from vyper.interfaces import ERC20
 from vyper.interfaces import ERC20Detailed
@@ -30,10 +30,10 @@ event UpdateMintBuffer:
 YVECRV: constant(address) =     0xc5bDdf9843308380375a611c18B50Fb9341f502A # YVECRV
 CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52 # CRV
 YVBOOST: constant(address) =    0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a # YVBOOST
-YCRV: constant(address) =       0x4c1317326fD8EFDeBdBE5e1cd052010D97723bd6 # YCRV
-STYCRV: constant(address) =     0x8a0889d47f9Aa0Fac1cC718ba34E26b867437880 # ST-YCRV
-LPYCRV: constant(address) =     0x61f46C65E403429266e8b569F23f70dD75d9BeE7 # LP-YCRV
-POOL: constant(address) =       0x0309A528bBa0394dC4A2Ce59123C52E317A54604 # POOL
+YCRV: constant(address) =       0xFCc5c47bE19d06BF83eB04298b026F81069ff65b # YCRV
+STYCRV: constant(address) =     0x27B5739e22ad9033bcBf192059122d163b60349D # ST-YCRV
+LPYCRV: constant(address) =     0xc97232527B62eFb0D8ed38CF3EA103A6CcA4037e # LP-YCRV
+POOL: constant(address) =       0x453D92C7d4263201C69aACfaf589Ed14202d83a4 # POOL
 CVXCRV: constant(address) =     0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7 # CVXCRV
 CVXCRVPOOL: constant(address) = 0x9D0464996170c6B9e75eED71c68B99dDEDf279e8 # CVXCRVPOOL
 
@@ -46,17 +46,17 @@ output_tokens: public(address[3])
 
 @external
 def __init__():
-    self.name = "Zap: YCRV v1"
+    self.name = "Zap: YCRV v2"
     self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
     self.mint_buffer = 50
 
-    assert ERC20(YVECRV).approve(YCRV, MAX_UINT256)
-    assert ERC20(YCRV).approve(STYCRV, MAX_UINT256)
-    assert ERC20(YCRV).approve(POOL, MAX_UINT256)
-    assert ERC20(POOL).approve(LPYCRV, MAX_UINT256)
-    assert ERC20(CRV).approve(POOL, MAX_UINT256)
-    assert ERC20(CRV).approve(YCRV, MAX_UINT256)
-    assert ERC20(CVXCRV).approve(CVXCRVPOOL, MAX_UINT256)
+    assert ERC20(YVECRV).approve(YCRV, max_value(uint256))
+    assert ERC20(YCRV).approve(STYCRV, max_value(uint256))
+    assert ERC20(YCRV).approve(POOL, max_value(uint256))
+    assert ERC20(POOL).approve(LPYCRV, max_value(uint256))
+    assert ERC20(CRV).approve(POOL, max_value(uint256))
+    assert ERC20(CRV).approve(YCRV, max_value(uint256))
+    assert ERC20(CVXCRV).approve(CVXCRVPOOL, max_value(uint256))
 
     self.legacy_tokens = [YVECRV, YVBOOST]
     self.output_tokens = [YCRV, STYCRV, LPYCRV]
@@ -104,7 +104,7 @@ def _zap_from_legacy(_input_token: address, _output_token: address, _amount: uin
     
 
 @external
-def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX_UINT256, _min_out: uint256 = 0, _recipient: address = msg.sender) -> uint256:
+def zap(_input_token: address, _output_token: address, _amount_in: uint256 = max_value(uint256), _min_out: uint256 = 0, _recipient: address = msg.sender) -> uint256:
     """
     @notice 
         This function allows users to zap from any legacy tokens, CRV, or any yCRV tokens as input 
@@ -126,7 +126,7 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = MAX
     assert _output_token in self.output_tokens  # dev: invalid output token address
 
     amount: uint256 = _amount_in
-    if amount == MAX_UINT256:
+    if amount == max_value(uint256):
         amount = ERC20(_input_token).balanceOf(msg.sender)
 
     if _input_token in self.legacy_tokens:
@@ -279,10 +279,10 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     return lp_amount * 10 ** 18 / Vault(LPYCRV).pricePerShare()
 
 @external
-def sweep(_token: address, _amount: uint256 = MAX_UINT256):
+def sweep(_token: address, _amount: uint256 = max_value(uint256)):
     assert msg.sender == self.sweep_recipient
     value: uint256 = _amount
-    if value == MAX_UINT256:
+    if value == max_value(uint256):
         value = ERC20(_token).balanceOf(self)
     assert ERC20(_token).transfer(self.sweep_recipient, value, default_return_value=True)
 
