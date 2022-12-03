@@ -29,6 +29,14 @@ interface VeCRV {
     function locked__end(address user) external returns (uint);
 }
 
+interface IMetaRegistry {
+    function get_pool_from_lp_token(address _lp) external view returns (address);
+}
+
+interface IGaugeController {
+    function gauge_types(address _gauge) external view returns (int128);
+}
+
 contract StrategyProxy {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -45,13 +53,15 @@ contract StrategyProxy {
     address public feeRecipient = address(0xc5bDdf9843308380375a611c18B50Fb9341f502A); // Default value is yveCRV
     FeeDistribution public constant feeDistribution = FeeDistribution(0xA464e6DCda8AC41e03616F95f4BC98a13b8922Dc);
     VeCRV public constant veCRV  = VeCRV(0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2);
-    // gauge => strategies
+    IMetaRegistry public constant metaRegistry = IMetaRegistry(0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC);
+    IGaugeController public constant gaugeController = IGaugeController(0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB);
+    
     mapping(address => address) public strategies;
-    mapping(address => address) public rewardAdapters;
+    mapping(address => address) public tokenRecipient;
     mapping(address => bool) public voters;
     mapping(address => bool) public lockers;
     address public governance;
-
+    address public factory;
     uint256 public lastTimeCursor;
 
     // Events so that indexers can keep track of key actions
@@ -64,13 +74,24 @@ contract StrategyProxy {
     event LockerApproved(address locker);
     event LockerRevoked(address locker);
     event AdminFeesClaimed(address recipient, uint256 amount);
-    event RewardAdapterApproved(address adapter, address token);
-    event RewardAdapterRevoked(address adapter, address token);
+    event TokenRecipientApproved(address token, address recipient);
+    event TokenRecipientRevoked(address token, address recipient);
+    event FactorySet(address factory);
+    event TokenClaimed(address token, address recipient, uint balance);
 
     constructor() public {
         governance = msg.sender;
     }
 
+    /// @notice Set curve vault factory address
+    /// @param _factory Address to set as curve vault factory
+    function setFactory(address _factory) external {
+        require(msg.sender == governance, "!governance");
+        require(_factory != factory, "already set");
+        factory = _factory;
+        emit FactorySet(_factory);
+    }
+    
     /// @notice Set governance address
     /// @param _governance Address to set as governance
     function setGovernance(address _governance) external {
@@ -95,7 +116,7 @@ contract StrategyProxy {
     /// @param _gauge Gauge to permit strategy on
     /// @param _strategy Strategy to approve on gauge
     function approveStrategy(address _gauge, address _strategy) external {
-        require(msg.sender == governance, "!governance");
+        require(msg.sender == governance || msg.sender == factory, "!access");
         require(_strategy != address(0), "disallow zero");
         require(strategies[_gauge] != _strategy, "already approved");
         strategies[_gauge] = _strategy;
@@ -112,25 +133,35 @@ contract StrategyProxy {
         emit StrategyRevoked(_gauge, _strategy);
     }
 
-    /// @notice Add an adapter to a rewards token
-    /// @param _token Token to permit adapter on
-    /// @param _adapter Adapter to approve for token
-    function approveAdapter(address _token, address _adapter) external {
+    /// @notice Use to approve a recipient. Recipients have privileges to claim tokens directly from the voter.
+    /// @dev For safety: Recipients cannot be added for LP tokens or gauge tokens (approved via gauge controller).
+    /// @param _token Token to permit a recpient on
+    /// @param _recipient Recpient to approve for token
+    function approveTokenRecipient(address _token, address _recipient) external {
         require(msg.sender == governance, "!governance");
-        require(_adapter != address(0), "disallow zero");
-        require(rewardAdapters[_token] != _adapter, "already approved");
-        rewardAdapters[_token] = _adapter;
-        emit RewardAdapterApproved(_adapter, _token);
+        require(_recipient != address(0), "disallow zero");
+        require(tokenRecipient[_token] != _recipient, "already approved");
+
+        try gaugeController.gauge_types(_token) {
+            revert('Gauge tokens cannot be approved');
+        }
+        catch {
+            // @dev: Since we expect try should fail, proceed without any catch logic error here.
+        }
+        address pool = metaRegistry.get_pool_from_lp_token(_token);
+        require(pool == address(0), "disallow LPs");
+        tokenRecipient[_token] = _recipient;
+        emit TokenRecipientApproved(_token, _recipient);
     }
 
-    /// @notice Clear any previously approved adapter from token
-    /// @param _token from which to remove strategy adapter
+    /// @notice Clear any previously approved token recipient
+    /// @param _token from which to clearn token recipient
     function revokeAdapter(address _token) external {
         require(msg.sender == governance, "!governance");
-        address adapter = rewardAdapters[_token];
-        require(adapter != address(0), "already revoked");
-        rewardAdapters[_token] = address(0);
-        emit RewardAdapterRevoked(adapter, _token);
+        address recipient = tokenRecipient[_token];
+        require(recipient != address(0), "already revoked");
+        tokenRecipient[_token] = address(0);
+        emit TokenRecipientRevoked(_token, recipient);
     }
 
     /// @notice Approve an address for voting on gauge weights
@@ -269,12 +300,13 @@ contract StrategyProxy {
         proxy.safeExecute(crv, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, _balance));
     }
 
-    function claimRewardsToken(address _token) external {
-        address adapter = rewardAdapters[_token];
-        require(msg.sender == adapter || msg.sender == governance);
+    function claimToken(address _token) external {
+        address recipient = tokenRecipient[_token];
+        require(msg.sender == recipient);
         uint256 _balance = IERC20(_token).balanceOf(address(proxy));
         if (_balance > 0) {
             proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, _balance));
+            emit TokenClaimed(_token, recipient, _balance);
         }
     }
 
@@ -298,7 +330,8 @@ contract StrategyProxy {
 
     /// @notice Check if it has been one week since last admin fee claim
     function claimable() public view returns (bool) {
-        if (now < lastTimeCursor.add(WEEK)) return false;
+        /// @dev add 1 day buffer since fees come available mid-day
+        if (now < lastTimeCursor.add(WEEK) + 1 days) return false;
         return true;
     }
 
@@ -310,4 +343,6 @@ contract StrategyProxy {
         Gauge(_gauge).claim_rewards(address(proxy));
         proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, IERC20(_token).balanceOf(address(proxy))));
     }
+
+
 }

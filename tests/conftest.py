@@ -37,7 +37,6 @@ def whale_yvboost(accounts):
 
 @pytest.fixture
 def user(accounts, yveCrv, yvboost, crv, whale_yvecrv, whale_crv, whale_yvboost, cvxcrv, whale_cvxcrv):
-    yvboost.transfer(accounts[0], 500e18,{'from':whale_yvboost})
     crv.transfer(accounts[0], 500e18,{'from':whale_crv})
     yveCrv.transfer(accounts[0], 1_000e18,{'from':whale_yvecrv})
     cvxcrv.transfer(accounts[0], 1_000e18,{'from':whale_cvxcrv})
@@ -249,16 +248,16 @@ def voter():
 
 @pytest.fixture
 def new_proxy(strategy, yveCrv, strategist, gov, voter):
-    yield Contract(web3.ens.resolve('curve-proxy.ychad.eth'))
-    # p = strategist.deploy(StrategyProxy)
-    # # Set up new proxy
-    # p.setGovernance(gov)
-    # p.setFeeRecipient(strategy, {"from": gov})
-    # voter.setStrategy(p, {"from": gov})
-    # strategy.setProxy(p, {"from": gov})
-    # yveCrv.setProxy(p, {"from": gov})
-    # yveCrv.setFeeDistribution(ZERO_ADDRESS, {"from": gov})
-    # yield p
+    # yield Contract(web3.ens.resolve('curve-proxy.ychad.eth'))
+    p = strategist.deploy(StrategyProxy)
+    # Set up new proxy
+    p.setGovernance(gov)
+    p.setFeeRecipient(strategy, {"from": gov})
+    voter.setStrategy(p, {"from": gov})
+    strategy.setProxy(p, {"from": gov})
+    yveCrv.setProxy(p, {"from": gov})
+    yveCrv.setFeeDistribution(ZERO_ADDRESS, {"from": gov})
+    yield p
 
 @pytest.fixture
 def yveCrv(token):
@@ -283,7 +282,7 @@ def whale_3crv(accounts):
 
 @pytest.fixture
 def whale_crv(accounts):
-    yield accounts.at("0xe3997288987E6297Ad550A69B31439504F513267", force=True)
+    yield accounts.at("0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2", force=True)
 
 @pytest.fixture
 def sushiswap_crv(accounts):
