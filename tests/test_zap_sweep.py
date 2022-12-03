@@ -10,4 +10,3 @@ def test_zap(zap, pool, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_c
     assert usdt.balanceOf(zap) == 100e6
     zap.sweep(usdt,{'from':gov})
     assert usdt.balanceOf(zap) == 0
-    assert False

@@ -197,7 +197,7 @@ def lp_ycrv(gov, pool, ycrv, user, vault_abi):
 
 @pytest.fixture
 def zap(ycrv, strategist, st_ycrv, lp_ycrv, pool):
-    z = strategist.deploy(ZapYCRV, ycrv, st_ycrv, lp_ycrv, pool)
+    z = strategist.deploy(ZapYCRV)
     yield z
 
 @pytest.fixture

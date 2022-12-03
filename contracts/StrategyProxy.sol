@@ -156,7 +156,7 @@ contract StrategyProxy {
 
     /// @notice Clear any previously approved token recipient
     /// @param _token from which to clearn token recipient
-    function revokeAdapter(address _token) external {
+    function revokeTokenRecipient(address _token) external {
         require(msg.sender == governance, "!governance");
         address recipient = tokenRecipient[_token];
         require(recipient != address(0), "already revoked");

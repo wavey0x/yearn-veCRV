@@ -1,5 +1,5 @@
 import math, time, brownie
-from brownie import Contract, web3, StrategyProxy
+from brownie import Contract, web3, StrategyProxy, ZERO_ADDRESS
 
 
 def test_proxy(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vault, fee_distributor, 
@@ -127,11 +127,14 @@ def test_approve_adapter(accounts, live_strat, voter, token, new_proxy, whale_yv
     for key in TEST_CASES:
         name = TEST_CASES[key]['name']
         should_succeed = TEST_CASES[key]['should_succeed']
-        adapter = web3.ens.resolve('ychad.eth')
+        recipient = web3.ens.resolve('ychad.eth')
         print(f'Testing {name}\nExpected to revert {not should_succeed}')
         if not should_succeed:
             with brownie.reverts():
-                tx = new_proxy.approveAdapter(key, adapter)
+                tx = new_proxy.approveTokenRecipient(key, recipient)
         else:
-            tx = new_proxy.approveAdapter(key, adapter)
+            tx = new_proxy.approveTokenRecipient(key, recipient)
         print(f'Gas used {tx.gas_used:_}')
+        
+        if new_proxy.tokenRecipient(key) != ZERO_ADDRESS:
+            tx = new_proxy.revokeTokenRecipient(key)
