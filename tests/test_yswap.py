@@ -46,6 +46,14 @@ def test_yswap(
     chain.sleep(60*60*6) # sleep to increase pps
     chain.mine(1)
 
+    # 
+    spell = '0x090185f2135308BaD17527004364eBcC2D37e5F6'
+    stg = '0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6'
+    strategy.approveTokenForTradeFactory(spell, {'from':gov})
+    strategy.approveTokenForTradeFactory(stg, {'from':gov})
+    assert len(strategy.getTokenList()) >= 2
+    assert False
+
     # Execute ySwap trades
     print(f"Executing trades...")
 

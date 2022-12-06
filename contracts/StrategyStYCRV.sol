@@ -6,10 +6,12 @@ pragma experimental ABIEncoderV2;
 
 import { BaseStrategy } from "@yearnvaults/contracts/BaseStrategy.sol";
 import {SafeERC20, SafeMath, IERC20, Address} from "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 
 
 interface ITradeFactory {
     function enable(address, address) external;
+    function disable(address, address) external;
 }
 
 interface IVoterProxy {
@@ -30,14 +32,15 @@ contract Strategy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     uint profitThreshold = 5_000e18;
     address public tradeFactory;
     address public proxy;
     address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
-    address[] public tfTokenList;
     IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
     bool public ignoreClaim;
+    EnumerableSet.AddressSet private tokenList;
 
     constructor(address _vault) BaseStrategy(_vault) public {
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012;
@@ -206,9 +209,10 @@ contract Strategy is BaseStrategy {
     }
 
     function approveTokenForTradeFactory(address _token) external onlyGovernance {
-        IERC20(_token).safeApprove(tradeFactory, type(uint).max);
-        tfTokenList.push(_token);
-        ITradeFactory(tradeFactory).enable(_token, address(want));
+        if(!isOnTokenList(_token) && tokenList.add(_token)){
+            IERC20(_token).safeApprove(tradeFactory, type(uint).max);
+            ITradeFactory(tradeFactory).enable(_token, address(want));
+        }
     }
 
     function removeTradeFactoryPermissions() external onlyVaultManagers {
@@ -217,11 +221,23 @@ contract Strategy is BaseStrategy {
 
     function _removeTradeFactoryPermissions() internal {
         tradeFactory = address(0);
-        uint length = tfTokenList.length;
-        for(uint i=0; i < length; i++){
-            IERC20 token = IERC20(tfTokenList[i]);
-            token.safeApprove(tradeFactory, 0);
+        uint length = tokenList.length();
+        for (uint i; i < length; i++) {
+            address token = tokenList.at(i);
+            IERC20(token).safeApprove(tradeFactory, 0);
+            ITradeFactory(tradeFactory).disable(token, address(want));
         }
-        delete tfTokenList;
+        delete tokenList;
+    }
+
+    function isOnTokenList(address _token) internal view returns (bool) {
+        return tokenList.contains(_token);
+    }
+
+    function getTokenList() public view returns (address[] memory _tokenList) {
+        _tokenList = new address[](tokenList.length());
+        for (uint i; i < tokenList.length(); i++) {
+            _tokenList[i] = tokenList.at(i);
+        }
     }
 }
