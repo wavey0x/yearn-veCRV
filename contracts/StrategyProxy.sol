@@ -341,8 +341,21 @@ contract StrategyProxy {
     function claimRewards(address _gauge, address _token) external {
         require(strategies[_gauge] == msg.sender, "!strategy");
         Gauge(_gauge).claim_rewards(address(proxy));
-        proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, IERC20(_token).balanceOf(address(proxy))));
+        _transferBalance(_token);
     }
 
+    /// @notice Claim non-CRV token incentives from the gauge and transfer to strategy
+    /// @param _gauge The gauge which this strategy is claiming rewards
+    /// @param _tokens The token(s) to be claimed to the approved strategy
+    function claimManyRewards(address _gauge, address[] memory _tokens) external {
+        require(strategies[_gauge] == msg.sender, "!strategy");
+        Gauge(_gauge).claim_rewards(address(proxy));
+        for (uint256 i; i < _tokens.length; ++i) {
+            _transferBalance(_tokens[i]);
+        }
+    }
 
+    function _transferBalance(address _token) internal {
+        proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, IERC20(_token).balanceOf(address(proxy))));
+    }
 }
