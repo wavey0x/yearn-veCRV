@@ -189,14 +189,14 @@ contract Strategy is BaseStrategy {
 
     function setTradeFactory(address _tradeFactory) external onlyGovernance {
         if (tradeFactory != address(0)) {
-            _removeTradeFactoryPermissions();
+            _removeTradeFactoryPermissions(true);
         }
         tradeFactory = _tradeFactory;
     }
 
     function setTradeFactory(address _tradeFactory, address[] calldata _tokens) external onlyGovernance {
         if (tradeFactory != address(0)) {
-            _removeTradeFactoryPermissions();
+            _removeTradeFactoryPermissions(true);
         }
         tradeFactory = _tradeFactory;
         ITradeFactory tf = ITradeFactory(_tradeFactory);
@@ -215,17 +215,19 @@ contract Strategy is BaseStrategy {
         }
     }
 
-    function removeTradeFactoryPermissions() external onlyVaultManagers {
-        _removeTradeFactoryPermissions();
+    /// @notice Remove permissions from tradefactory
+    /// @param _disableTf Specify whether also disable TF. Option is given in case we need to bypass a reverting disable.
+    function removeTradeFactoryPermissions(bool _disableTf) external onlyVaultManagers {
+        _removeTradeFactoryPermissions(_disableTf);
     }
 
-    function _removeTradeFactoryPermissions() internal {
+    function _removeTradeFactoryPermissions(bool _disableTf) internal {
         tradeFactory = address(0);
         uint length = tokenList.length();
         for (uint i; i < length; i++) {
             address token = tokenList.at(i);
             IERC20(token).safeApprove(tradeFactory, 0);
-            ITradeFactory(tradeFactory).disable(token, address(want));
+            if (_disableTf) ITradeFactory(tradeFactory).disable(token, address(want));
         }
         delete tokenList;
     }
