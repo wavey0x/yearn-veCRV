@@ -69,6 +69,10 @@ def test_approve_adapter(accounts, live_strat, voter, token, new_proxy, whale_yv
             'name': 'BOR',
             'should_succeed': True,
         },
+        '0xD533a949740bb3306d119CC777fa900bA034cd52': {
+            'name': 'CRV',
+            'should_succeed': False,
+        },
         '0xdBdb4d16EdA451D0503b854CF79D55697F90c8DF': {
             'name': 'ALCX',
             'should_succeed': True,
@@ -135,6 +139,7 @@ def test_approve_adapter(accounts, live_strat, voter, token, new_proxy, whale_yv
         else:
             tx = new_proxy.approveTokenRecipient(key, recipient)
         print(f'Gas used {tx.gas_used:_}')
-        
+        # if tx.gas_used > 1_000_000:
+        #     assert False
         if new_proxy.tokenRecipient(key) != ZERO_ADDRESS:
             tx = new_proxy.revokeTokenRecipient(key)

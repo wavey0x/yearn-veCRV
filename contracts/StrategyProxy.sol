@@ -135,13 +135,13 @@ contract StrategyProxy {
 
     /// @notice Use to approve a recipient. Recipients have privileges to claim tokens directly from the voter.
     /// @dev For safety: Recipients cannot be added for LP tokens or gauge tokens (approved via gauge controller).
-    /// @param _token Token to permit a recpient on
+    /// @param _token Token to permit a recpient for
     /// @param _recipient Recpient to approve for token
     function approveTokenRecipient(address _token, address _recipient) external {
         require(msg.sender == governance, "!governance");
         require(_recipient != address(0), "disallow zero");
         require(tokenRecipient[_token] != _recipient, "already approved");
-
+        require(_token != crv, "disallow CRV");
         try gaugeController.gauge_types(_token) {
             revert('Gauge tokens cannot be approved');
         }
@@ -155,7 +155,7 @@ contract StrategyProxy {
     }
 
     /// @notice Clear any previously approved token recipient
-    /// @param _token from which to clearn token recipient
+    /// @param _token Token from which to clearn recipient
     function revokeTokenRecipient(address _token) external {
         require(msg.sender == governance, "!governance");
         address recipient = tokenRecipient[_token];
