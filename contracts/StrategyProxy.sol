@@ -305,7 +305,7 @@ contract StrategyProxy {
         require(msg.sender == recipient);
         uint256 _balance = IERC20(_token).balanceOf(address(proxy));
         if (_balance > 0) {
-            proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, _balance));
+            proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", recipient, _balance));
             emit TokenClaimed(_token, recipient, _balance);
         }
     }
