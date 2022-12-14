@@ -95,7 +95,7 @@ def amount(accounts, token, gov):
     amount = 10_000 * 10 ** token.decimals()
     # In order to get some funds for the token you are about to use,
     # it impersonate an exchange address to use it's funds.
-    reserve = accounts.at("0x1b9524b0F0b9F2e16b5F9e4baD331e01c2267981", force=True)
+    reserve = accounts.at("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a", force=True)
     token.transfer(accounts[0], amount*2, {"from": reserve})
     token.transfer(gov, amount, {"from": reserve})
     yield amount

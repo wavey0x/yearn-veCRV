@@ -57,7 +57,8 @@ contract StrategyProxy {
     IGaugeController public constant gaugeController = IGaugeController(0x2F50D538606Fa9EDD2B11E2446BEb18C9D5846bB);
     
     mapping(address => address) public strategies;
-    mapping(address => address) public tokenRecipient;
+    mapping(address => bool) public rewardTokenApproved; // LP rewards from gauge
+    mapping(address => address) public extraTokenRecipient;
     mapping(address => bool) public voters;
     mapping(address => bool) public lockers;
     address public governance;
@@ -65,19 +66,20 @@ contract StrategyProxy {
     uint256 public lastTimeCursor;
 
     // Events so that indexers can keep track of key actions
-    event GovernanceSet(address governance);
-    event FeeRecipientSet(address feeRecipient);
-    event StrategyApproved(address gauge, address strategy);
-    event StrategyRevoked(address gauge, address strategy);
-    event VoterApproved(address voter);
-    event VoterRevoked(address voter);
-    event LockerApproved(address locker);
-    event LockerRevoked(address locker);
-    event AdminFeesClaimed(address recipient, uint256 amount);
-    event TokenRecipientApproved(address token, address recipient);
-    event TokenRecipientRevoked(address token, address recipient);
-    event FactorySet(address factory);
-    event TokenClaimed(address token, address recipient, uint balance);
+    event GovernanceSet(address indexed governance);
+    event FeeRecipientSet(address indexed feeRecipient);
+    event StrategyApproved(address indexed gauge, address indexed strategy);
+    event StrategyRevoked(address indexed gauge, address indexed strategy);
+    event VoterApproved(address indexed voter);
+    event VoterRevoked(address indexed voter);
+    event LockerApproved(address indexed locker);
+    event LockerRevoked(address indexed locker);
+    event AdminFeesClaimed(address indexed recipient, uint256 amount);
+    event ExtraTokenRecipientApproved(address indexed token, address indexed recipient);
+    event ExtraTokenRecipientRevoked(address indexed token, address indexed recipient);
+    event RewardTokenApproved(address indexed token, bool approved);
+    event FactorySet(address indexed factory);
+    event TokenClaimed(address indexed token, address indexed recipient, uint balance);
 
     constructor() public {
         governance = msg.sender;
@@ -137,31 +139,33 @@ contract StrategyProxy {
     /// @dev For safety: Recipients cannot be added for LP tokens or gauge tokens (approved via gauge controller).
     /// @param _token Token to permit a recpient for
     /// @param _recipient Recpient to approve for token
-    function approveTokenRecipient(address _token, address _recipient) external {
+    function approveExtraTokenRecipient(address _token, address _recipient) external {
         require(msg.sender == governance, "!governance");
         require(_recipient != address(0), "disallow zero");
-        require(tokenRecipient[_token] != _recipient, "already approved");
-        require(_token != crv, "disallow CRV");
-        try gaugeController.gauge_types(_token) {
-            revert('Gauge tokens cannot be approved');
-        }
-        catch {
-            // @dev: Since we expect try should fail, proceed without any catch logic error here.
-        }
-        address pool = metaRegistry.get_pool_from_lp_token(_token);
-        require(pool == address(0), "disallow LPs");
-        tokenRecipient[_token] = _recipient;
-        emit TokenRecipientApproved(_token, _recipient);
+        require(extraTokenRecipient[_token] != _recipient, "already approved");
+        require(_isSafeToken(_token), "!safeToken");
+        extraTokenRecipient[_token] = _recipient;
+        emit ExtraTokenRecipientApproved(_token, _recipient);
     }
 
     /// @notice Clear any previously approved token recipient
     /// @param _token Token from which to clearn recipient
-    function revokeTokenRecipient(address _token) external {
+    function revokeExtraTokenRecipient(address _token) external {
         require(msg.sender == governance, "!governance");
-        address recipient = tokenRecipient[_token];
+        address recipient = extraTokenRecipient[_token];
         require(recipient != address(0), "already revoked");
-        tokenRecipient[_token] = address(0);
-        emit TokenRecipientRevoked(_token, recipient);
+        extraTokenRecipient[_token] = address(0);
+        emit ExtraTokenRecipientRevoked(_token, recipient);
+    }
+
+    function claimExtraToken(address _token) external {
+        address recipient = extraTokenRecipient[_token];
+        require(msg.sender == recipient);
+        uint256 _balance = IERC20(_token).balanceOf(address(proxy));
+        if (_balance > 0) {
+            proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", recipient, _balance));
+            emit TokenClaimed(_token, recipient, _balance);
+        }
     }
 
     /// @notice Approve an address for voting on gauge weights
@@ -300,16 +304,6 @@ contract StrategyProxy {
         proxy.safeExecute(crv, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, _balance));
     }
 
-    function claimToken(address _token) external {
-        address recipient = tokenRecipient[_token];
-        require(msg.sender == recipient);
-        uint256 _balance = IERC20(_token).balanceOf(address(proxy));
-        if (_balance > 0) {
-            proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", recipient, _balance));
-            emit TokenClaimed(_token, recipient, _balance);
-        }
-    }
-
     /// @notice Claim share of weekly admin fees from Curve fee distributor
     /// @dev Admin fees become available every Thursday, so we run this expensive logic only once per week.
     /// @param _recipient The address to which we transfer 3CRV
@@ -340,6 +334,7 @@ contract StrategyProxy {
     /// @param _token The token to be claimed to the approved strategy
     function claimRewards(address _gauge, address _token) external {
         require(strategies[_gauge] == msg.sender, "!strategy");
+        require(rewardTokenApproved[_token], "!approvedToken");
         Gauge(_gauge).claim_rewards(address(proxy));
         _transferBalance(_token);
     }
@@ -351,8 +346,35 @@ contract StrategyProxy {
         require(strategies[_gauge] == msg.sender, "!strategy");
         Gauge(_gauge).claim_rewards(address(proxy));
         for (uint256 i; i < _tokens.length; ++i) {
+            require(rewardTokenApproved[_tokens[i]], "!approvedToken");
             _transferBalance(_tokens[i]);
         }
+    }
+
+    function approveRewardToken(address _token) external {
+        require(msg.sender == governance, "!governance");
+        require(_isSafeToken(_token),"!safeToken");
+        require(!rewardTokenApproved[_token]);
+        rewardTokenApproved[_token] = true;
+        emit RewardTokenApproved(_token, true);
+    }
+
+    function revokeRewardToken(address _token) external {
+        require(msg.sender == governance, "!governance");
+        require(rewardTokenApproved[_token]);
+        rewardTokenApproved[_token] = false;
+        emit RewardTokenApproved(_token, false);
+    }
+
+    function _isSafeToken(address _token) internal returns (bool) {
+        if (_token == crv) return false;
+        try gaugeController.gauge_types(_token) {
+            return false;
+        }
+        catch {} // @dev: Since we expect try should fail, proceed without any catch logic error here.
+        address pool = metaRegistry.get_pool_from_lp_token(_token);
+        if (pool != address(0)) return false;
+        return true;
     }
 
     function _transferBalance(address _token) internal {

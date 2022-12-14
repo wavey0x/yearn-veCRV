@@ -135,11 +135,17 @@ def test_approve_adapter(accounts, live_strat, voter, token, new_proxy, whale_yv
         print(f'Testing {name}\nExpected to revert {not should_succeed}')
         if not should_succeed:
             with brownie.reverts():
-                tx = new_proxy.approveTokenRecipient(key, recipient)
+                tx = new_proxy.approveExtraTokenRecipient(key, recipient)
+            with brownie.reverts():
+                tx = new_proxy.approveRewardToken(key)
         else:
-            tx = new_proxy.approveTokenRecipient(key, recipient)
+            tx = new_proxy.approveExtraTokenRecipient(key, recipient)
+            tx = new_proxy.approveRewardToken(key)
+            assert new_proxy.rewardTokenApproved(key) == True
         print(f'Gas used {tx.gas_used:_}')
         # if tx.gas_used > 1_000_000:
         #     assert False
-        if new_proxy.tokenRecipient(key) != ZERO_ADDRESS:
-            tx = new_proxy.revokeTokenRecipient(key)
+        if new_proxy.extraTokenRecipient(key) != ZERO_ADDRESS:
+            tx = new_proxy.revokeExtraTokenRecipient(key)
+        if new_proxy.rewardTokenApproved(key):
+            tx = new_proxy.revokeRewardToken(key)
