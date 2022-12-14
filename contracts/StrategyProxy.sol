@@ -138,7 +138,7 @@ contract StrategyProxy {
     /// @notice Use to approve a recipient. Recipients have privileges to claim tokens directly from the voter.
     /// @dev For safety: Recipients cannot be added for LP tokens or gauge tokens (approved via gauge controller).
     /// @param _token Token to permit a recpient for
-    /// @param _recipient Recpient to approve for token
+    /// @param _recipient Recipient to approve for token
     function approveExtraTokenRecipient(address _token, address _recipient) external {
         require(msg.sender == governance, "!governance");
         require(_recipient != address(0), "disallow zero");
