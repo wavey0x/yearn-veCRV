@@ -199,19 +199,20 @@ contract Strategy is BaseStrategy {
             _removeTradeFactoryPermissions(true);
         }
         tradeFactory = _tradeFactory;
-        ITradeFactory tf = ITradeFactory(_tradeFactory);
         uint length = _tokens.length;
-        for(uint i=0; i < length; i++){
-            IERC20 token = IERC20(_tokens[i]);
-            token.safeApprove(tradeFactory, type(uint).max);
-            tf.enable(_tokens[i], address(want));
+        for(uint i; i < length; ++i){
+            _approveTokenForTradeFactory(_tradeFactory, _tokens[i]);
         }
     }
 
     function approveTokenForTradeFactory(address _token) external onlyGovernance {
+        _approveTokenForTradeFactory(tradeFactory, _token);
+    }
+
+    function _approveTokenForTradeFactory(address tf, address _token) internal {
         if(!isOnTokenList(_token) && tokenList.add(_token)){
-            IERC20(_token).safeApprove(tradeFactory, type(uint).max);
-            ITradeFactory(tradeFactory).enable(_token, address(want));
+            IERC20(_token).safeApprove(tf, type(uint).max);
+            ITradeFactory(tf).enable(_token, address(want));
         }
     }
 
