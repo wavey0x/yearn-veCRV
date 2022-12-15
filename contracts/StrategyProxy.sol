@@ -205,8 +205,8 @@ contract StrategyProxy {
     }
 
     /// @notice Lock CRV into veCRV contract
-    /// @dev Permissionless, anyone is encouraged to call it when CRV is available to lock
     function lock() external {
+        require(msg.sender == governance || lockers[msg.sender], "!locker");
         uint256 amount = IERC20(crv).balanceOf(address(proxy));
         if (amount > 0) proxy.increaseAmount(amount);
     }
