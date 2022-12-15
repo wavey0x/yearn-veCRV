@@ -210,7 +210,7 @@ contract Strategy is BaseStrategy {
     }
 
     function _approveTokenForTradeFactory(address tf, address _token) internal {
-        if(!isOnTokenList(_token) && tokenList.add(_token)){
+        if(tokenList.add(_token)){
             IERC20(_token).safeApprove(tf, type(uint).max);
             ITradeFactory(tf).enable(_token, address(want));
         }
