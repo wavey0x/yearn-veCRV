@@ -293,7 +293,7 @@ contract StrategyProxy {
             _vote(_gauges[i], _weights[i]);
         }
     }
-.
+
     function _vote(address _gauge, uint256 _weight) internal {
         proxy.safeExecute(address(gaugeController), 0, abi.encodeWithSignature("vote_for_gauge_weights(address,uint256)", _gauge, _weight));
     }

@@ -40,6 +40,7 @@ contract Strategy is BaseStrategy {
     address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
     IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
     bool public ignoreClaim;
+    bool public disableClaim;
     EnumerableSet.AddressSet private tokenList;
 
     constructor(address _vault) BaseStrategy(_vault) public {
@@ -145,6 +146,7 @@ contract Strategy is BaseStrategy {
     }
 
     function claim() external {
+        require(!disableClaim, "disabledClaim");
         _claim();
     }
 
@@ -171,6 +173,11 @@ contract Strategy is BaseStrategy {
     // @dev Set true to ignore 3CRV claim from proxy. This allows us to bypass a revert if necessary.
     function setIgnoreClaim(bool _ignoreClaim) external onlyEmergencyAuthorized {
         ignoreClaim = _ignoreClaim;
+    }
+
+    // @dev Toggle disable public claim
+    function setdisableClaim(bool _disableClaim) external onlyEmergencyAuthorized {
+        disableClaim = _disableClaim;
     }
 
     function setProfitThreshold(uint _profitThreshold) external onlyVaultManagers {
@@ -210,6 +217,7 @@ contract Strategy is BaseStrategy {
     }
 
     function _approveTokenForTradeFactory(address tf, address _token) internal {
+        require(_token != address(want), "wantBlocked");
         if(tokenList.add(_token)){
             IERC20(_token).safeApprove(tf, type(uint).max);
             ITradeFactory(tf).enable(_token, address(want));
