@@ -48,7 +48,7 @@ output_tokens: public(address[3])
 def __init__():
     self.name = "Zap: YCRV v2"
     self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
-    self.mint_buffer = 50
+    self.mint_buffer = 15
 
     assert ERC20(YVECRV).approve(YCRV, max_value(uint256))
     assert ERC20(YCRV).approve(STYCRV, max_value(uint256))
@@ -251,16 +251,20 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     if _input_token in self.legacy_tokens:
         return self._calc_expected_out_from_legacy(_input_token, _output_token, _amount_in)
     amount: uint256 = _amount_in
+
     if _input_token == CRV or _input_token == CVXCRV:
         if _input_token == CVXCRV:
             amount = Curve(CVXCRVPOOL).get_dy(1, 0, amount)
         output_amount: uint256 = Curve(POOL).get_dy(0, 1, amount)
-        if output_amount > amount:
+        buffered_amount: uint256 = amount + (amount * self.mint_buffer / 10_000)
+        if output_amount > buffered_amount: # dev: ensure calculation uses buffer
             amount = output_amount
     else:
         assert _input_token in self.output_tokens   # dev: invalid input token address
+    
     if amount == 0:
         return 0
+    
     if _input_token == _output_token:
         return amount
 
@@ -274,6 +278,7 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
         return amount
     elif _output_token == STYCRV:
         return amount * 10 ** 18 / Vault(STYCRV).pricePerShare()
+    
     assert _output_token == LPYCRV
     lp_amount: uint256 = Curve(POOL).calc_token_amount([0, amount], True)
     return lp_amount * 10 ** 18 / Vault(LPYCRV).pricePerShare()
