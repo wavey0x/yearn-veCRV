@@ -131,7 +131,8 @@ def live_strat():
 
 @pytest.fixture
 def ycrv(strategist):
-    yield strategist.deploy(yCRV)
+    # yield strategist.deploy(yCRV)
+    yield Contract('0xFCc5c47bE19d06BF83eB04298b026F81069ff65b')
 
 @pytest.fixture
 def vault_abi():
@@ -139,16 +140,16 @@ def vault_abi():
 
 @pytest.fixture
 def st_ycrv(strategist, ycrv, gov, yveCrv,vault_abi, user):
-    registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
-    address = registry.newVault(ycrv,gov,gov,"Staked YCRV","st-YCRV",{'from':gov}).return_value
-    v = Contract.from_abi("pool", address, vault_abi)
-    v.setDepositLimit(100e25, {'from':gov})
-    ycrv.approve(v, 2**256-1, {'from':user})
-    yveCrv.approve(ycrv, 2**256-1, {'from':user})
-    ycrv.burn_to_mint(101e18, {'from':user})
-    v.deposit(100e18,{'from':user})
-    ycrv.transfer(v, 1e18,{'from':user}) # Increase pps a bit
-    yield v
+    # registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
+    # address = registry.newVault(ycrv,gov,gov,"Staked YCRV","st-YCRV",{'from':gov}).return_value
+    # v = Contract.from_abi("pool", address, vault_abi)
+    # v.setDepositLimit(100e25, {'from':gov})
+    # ycrv.approve(v, 2**256-1, {'from':user})
+    # yveCrv.approve(ycrv, 2**256-1, {'from':user})
+    # ycrv.burn_to_mint(101e18, {'from':user})
+    # v.deposit(100e18,{'from':user})
+    # ycrv.transfer(v, 1e18,{'from':user}) # Increase pps a bit
+    yield Contract('0x27B5739e22ad9033bcBf192059122d163b60349D')
 
 @pytest.fixture
 def pool(strategist, gov, ycrv, yveCrv, vault_abi, crv, user):
@@ -185,15 +186,15 @@ def pool(strategist, gov, ycrv, yveCrv, vault_abi, crv, user):
 
 @pytest.fixture
 def lp_ycrv(gov, pool, ycrv, user, vault_abi):
-    registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
-    tx = registry.newVault(pool,gov,gov,"LP YCRV","lp-YCRV",{'from':gov})
-    vault_address = tx.events['NewVault']['vault']
-    v = Contract.from_abi("vault", vault_address, vault_abi)
-    v.setDepositLimit(100e25, {'from':gov})
-    pool.approve(v, 2**256-1,{'from':user})
-    v.deposit({'from':user})
-    ycrv.transfer(v, 1e17,{'from':user}) # Increase pps a bit
-    yield v
+    # registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
+    # tx = registry.newVault(pool,gov,gov,"LP YCRV","lp-YCRV",{'from':gov})
+    # vault_address = tx.events['NewVault']['vault']
+    # v = Contract.from_abi("vault", vault_address, vault_abi)
+    # v.setDepositLimit(100e25, {'from':gov})
+    # pool.approve(v, 2**256-1,{'from':user})
+    # v.deposit({'from':user})
+    # ycrv.transfer(v, 1e17,{'from':user}) # Increase pps a bit
+    yield Contract('0xc97232527B62eFb0D8ed38CF3EA103A6CcA4037e')
 
 @pytest.fixture
 def zap(ycrv, strategist, st_ycrv, lp_ycrv, pool):
