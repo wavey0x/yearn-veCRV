@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Feel free to change the license, but this is what we use
 
-pragma solidity 0.6.12;
+pragma solidity ^0.8.15;
 pragma experimental ABIEncoderV2;
 
 import { BaseStrategy } from "@yearnvaults/contracts/BaseStrategy.sol";
-import {SafeERC20, SafeMath, IERC20, Address} from "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/EnumerableSet.sol";
+// import {SafeERC20, SafeMath, IERC20, Address} from "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// import "@openzeppelin/contracts/utils/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 
 interface ITradeFactory {
@@ -20,9 +24,9 @@ interface IVoterProxy {
     function claimable() external view returns (bool);
 }
 
-interface IBaseFee {
-    function isCurrentBaseFeeAcceptable() external view returns (bool);
-}
+// interface IBaseFee {
+//     function isCurrentBaseFeeAcceptable() external view returns (bool);
+// }
 
 interface IVoter {
     function strategy() external view returns (address);
@@ -30,15 +34,14 @@ interface IVoter {
 
 contract Strategy is BaseStrategy {
     using SafeERC20 for IERC20;
-    using Address for address;
-    using SafeMath for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
     uint profitThreshold = 5_000e18;
     address public tradeFactory;
     address public proxy;
-    address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
-    IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
+    address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // incorrect. we need to deploy our veBAL voter
+    IERC20 internal constant bbausd = IERC20(0xA13a9247ea42D743238089903570127DdA72fE44);
+    IERC20 internal constant bal = IERC20(0xba100000625a3754423978a60c9317c58a424e3D);
     bool public ignoreClaim;
     bool public disableClaim;
     EnumerableSet.AddressSet private tokenList;
@@ -50,7 +53,7 @@ contract Strategy is BaseStrategy {
     }
 
     function name() external view override returns (string memory) {
-        return "StrategyStYCRV";
+        return "StrategyStYBAL";
     }
 
     function estimatedTotalAssets() public view override returns (uint256) {
@@ -78,13 +81,13 @@ contract Strategy is BaseStrategy {
         uint256 debt = vault.strategies(address(this)).totalDebt;
         uint256 assets = estimatedTotalAssets();
         if (assets >= debt){
-            _profit = assets.sub(debt);
+            _profit = assets - debt;
         } else {
-            _loss = debt.sub(assets);
+            _loss = debt - assets;
         }
     }
 
-    // Here we lock curve in the voter contract. Lock doesn't require approval.
+    // Here we lock BALWETH in the voter contract. Lock doesn't require approval.
     function adjustPosition(uint256 _debtOutstanding) internal override {
         IVoterProxy(proxy).lock();
     }
@@ -97,16 +100,20 @@ contract Strategy is BaseStrategy {
         uint256 totalAssets = want.balanceOf(address(this));
         if (_amountNeeded > totalAssets) {
             _liquidatedAmount = totalAssets;
-            _loss = _amountNeeded.sub(totalAssets);
+            _loss = _amountNeeded - totalAssets;
         } else {
             _liquidatedAmount = _amountNeeded;
         }
     }
 
     function prepareMigration(address _newStrategy) internal override {
-        uint256 balance3crv = balanceOf3crv();
-        if(balance3crv > 0){
-            crv3.safeTransfer(_newStrategy, balance3crv);
+        uint256 balanceBbausd = balanceOfBbausd();
+        if(balanceBbausd > 0){
+            bbausd.safeTransfer(_newStrategy, balanceBbausd);
+        }
+        uint256 balanceBal = balanceOfBal();
+        if(balanceBal > 0){
+            bal.safeTransfer(_newStrategy, balanceBal);
         }
     }
 
@@ -125,8 +132,7 @@ contract Strategy is BaseStrategy {
         }
 
         if (
-            assets >= debt.add(profitThreshold) ||
-            IVoterProxy(proxy).claimable()            
+            assets >= debt + profitThreshold || IVoterProxy(proxy).claimable()            
         ) return true;
 
         return false;
@@ -155,14 +161,18 @@ contract Strategy is BaseStrategy {
         IVoterProxy(proxy).claim(address(this));
     }
 
-    function isBaseFeeAcceptable() internal view returns (bool) {
-        return
-            IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
-                .isCurrentBaseFeeAcceptable();
+    // function isBaseFeeAcceptable() internal view returns (bool) {
+    //     return
+    //         IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
+    //             .isCurrentBaseFeeAcceptable();
+    // }
+
+    function balanceOfBbausd() public view returns (uint256) {
+        return bbausd.balanceOf(address(this));
     }
 
-    function balanceOf3crv() public view returns (uint256) {
-        return crv3.balanceOf(address(this));
+    function balanceOfBal() public view returns (uint256) {
+        return bal.balanceOf(address(this));
     }
 
     // Common API used to update Yearn's StrategyProxy if needed in case of upgrades.

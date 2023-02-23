@@ -1,11 +1,13 @@
-pragma solidity ^0.6.12;
+// // SPDX-License-Identifier: MIT
 
-interface FeeDistribution {
-    function claim_many(address[20] calldata) external returns (bool);
+// pragma solidity ^0.8.15;
 
-    function last_token_time() external view returns (uint256);
+// interface FeeDistribution {
+//     function claim_many(address[20] calldata) external returns (bool);
 
-    function time_cursor() external view returns (uint256);
+//     function last_token_time() external view returns (uint256);
 
-    function time_cursor_of(address) external view returns (uint256);
-}
+//     function time_cursor() external view returns (uint256);
+
+//     function time_cursor_of(address) external view returns (uint256);
+// }
