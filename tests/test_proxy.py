@@ -16,12 +16,14 @@ def test_proxy(accounts, voter, new_proxy, fee_distributor, bal, bbausd, balweth
     print('lock_end: ', lock_end) # 23 march 2023
     
     new_proxy.lock({'from':gov})
+    print('voter: ', voter)
     print('voter.strategy(): ', voter.strategy())
     print('voter.governance(): ', voter.governance())
     print('new_proxy: ', new_proxy)
     print('new_proxy.governance(): ', new_proxy.governance())
     print('gov: ', gov)
-    new_proxy.maxLock({'from':gov}) # issue with safeexecute in voter
+    tx = new_proxy.maxLock({'from':gov}) # issue with safeexecute in voter
+    tx.call_trace(True)
     if int(max/WEEK)*WEEK == lock_end:
         assert vebal.locked__end(voter) == lock_end
         chain.sleep(60*60*24*7)
@@ -79,56 +81,48 @@ def test_approve_adapter(accounts, voter, new_proxy, bal, bbausd, chain, whale_b
             'name': 'BOR',
             'should_succeed': True,
         },
-        '0xD533a949740bb3306d119CC777fa900bA034cd52': {
-            'name': 'CRV',
+        '0xba100000625a3754423978a60c9317c58a424e3D': {
+            'name': 'BAL',
+            'should_succeed': False,
+        },
+        '0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56': {
+            'name': 'BALWETH',
+            'should_succeed': False,
+        },
+        '0xA13a9247ea42D743238089903570127DdA72fE44': {
+            'name': 'BBAUSD',
+            'should_succeed': False,
+        },
+        '0xA13a9247ea42D743238089903570127DdA72fE44': {
+            'name': 'BBAUSD Gauge',
             'should_succeed': False,
         },
         '0xdBdb4d16EdA451D0503b854CF79D55697F90c8DF': {
             'name': 'ALCX',
             'should_succeed': True,
         },
-        '0x1E212e054d74ed136256fc5a5DDdB4867c6E003F': {
-            'name': '3EURpool-f Gauge',
+        '0x4ce0BD7deBf13434d3ae127430e9BD4291bfB61f': {
+            'name': 'Balancer 50STG-50bb-a-USD Pool',
             'should_succeed': False,
         },
-        '0xd662908ADA2Ea1916B3318327A97eB18aD588b5d': {
-            'name': 'a3CRV-f Gauge',
+        '0x9703C0144e8b68280b97d9e30aC6f979Dd6A38d7': {
+            'name': 'Balancer 50STG-50bb-a-USD Gauge',
             'should_succeed': False,
         },
-        '0x38039dD47636154273b287F74C432Cac83Da97e2': {
-            'name': 'ag+ib-EUR-f Gauge',
+        '0x3dd0843A028C86e0b760b1A76929d1C5Ef93a2dd': {
+            'name': 'Balancer B-auraBAL-STABLE Pool',
             'should_succeed': False,
         },
-        '0xbFcF63294aD7105dEa65aA58F8AE5BE2D9d0952A': {
-            'name': '3CRV gauge',
+        '0x0312AA8D0BA4a1969Fddb382235870bF55f7f242': {
+            'name': 'Balancer B-auraBAL-STABLE Gauge',
             'should_succeed': False,
         },
-        '0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490': {
-            'name': '3CRV token',
+        '0x32296969Ef14EB0c6d29669C550D4a0449130230': {
+            'name': 'Balancer B-stETH-STABLE Pool',
             'should_succeed': False,
         },
-        '0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7': {
-            'name': '3CRV Pool',
-            'should_succeed': True,
-        },
-        '0x0309a528bba0394dc4a2ce59123c52e317a54604': {
-            'name': 'REKT yCRV LP token',
-            'should_succeed': False,
-        },
-        '0x9672D72D5843ca5C6b1E0CC676E106920D6a650E': {
-            'name': 'REKT yCRV gauge - not approved',
-            'should_succeed': True,
-        },
-        '0xdcef968d416a41cdac0ed8702fac8128a64241a2': {
-            'name': 'FRAXBP Pool',
-            'should_succeed': True, # Should succeed since this is the pool address, not LP
-        },
-        '0x3175df0976dfa876431c2e9ee6bc45b65d3473cc': {
-            'name': 'FRAXBP token',
-            'should_succeed': False,
-        },
-        '0xe57180685e3348589e9521aa53af0bcd497e884d': {
-            'name': 'DOLA/FRAXBP token+pool',
+        '0xcD4722B7c24C29e0413BDCd9e51404B4539D14aE': {
+            'name': 'Balancer B-stETH-STABLE Gauge',
             'should_succeed': False,
         },
     }

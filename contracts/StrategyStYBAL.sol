@@ -39,7 +39,7 @@ contract Strategy is BaseStrategy {
     uint profitThreshold = 5_000e18;
     address public tradeFactory;
     address public proxy;
-    address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // incorrect. we need to deploy our veBAL voter
+    address public voter = 0x8c810f835b57500053aA5692aFBF48E3C835e357; // incorrect. we need to deploy our veBAL voter
     IERC20 internal constant bbausd = IERC20(0xA13a9247ea42D743238089903570127DdA72fE44);
     IERC20 internal constant bal = IERC20(0xba100000625a3754423978a60c9317c58a424e3D);
     bool public ignoreClaim;

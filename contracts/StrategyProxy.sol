@@ -53,7 +53,7 @@ contract StrategyProxy {
     uint256 private constant WEEK = 604800; // Number of seconds in a week
 
     /// @notice Yearn's voter proxy. Typically referred to as "voter".
-    IProxy public constant proxy = IProxy(0xaaBfdc6F77c22E491eD07Fe43786ce59ecDAb891); // incorrect - yet to be deployed
+    IProxy public constant proxy = IProxy(0x8c810f835b57500053aA5692aFBF48E3C835e357); // incorrect - yet to be deployed
 
     /// @notice Balancer's token minter.
     address public constant mintr = 0x239e55F427D44C3cc793f49bFB507ebe76638a2b; // correct
@@ -448,15 +448,15 @@ contract StrategyProxy {
 
     // make sure a strategy can't yoink gauge or LP tokens.
     function _isSafeToken(address _token) internal returns (bool) {
-        if (_token == bal) return false;
+        if (_token == bal) return false; /// @dev: balweth and bbausd are covered as lp tokens
         try gaugeController.gauge_types(_token) {
             return false;
         }
-        catch {} // @dev: Since we expect try should fail, proceed without any catch logic error here.
+        catch {} /// @dev: Since we expect try should fail, proceed without any catch logic error here.
         try IPool(_token).getPoolId() {
             return false;
         }
-        catch {} // @dev: Since we expect try should fail, proceed without any catch logic error here.
+        catch {} /// @dev: Since we expect try should fail, proceed without any catch logic error here.
         return true;
     }
 
