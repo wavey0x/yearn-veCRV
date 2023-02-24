@@ -2,20 +2,6 @@ from itertools import filterfalse
 import brownie
 from brownie import Contract
 
-def test_burn(ycrv, yveCrv, crv, whale_yvecrv, user, gov, accounts):
-    amount = 100e18
-    before = yveCrv.balanceOf(whale_yvecrv)
-    yveCrv.approve(ycrv, amount,{'from':whale_yvecrv})
-    ycrv.burn_to_mint(amount,{'from':whale_yvecrv})
-    assert before - yveCrv.balanceOf(whale_yvecrv) == amount
-    assert yveCrv.balanceOf(ycrv) == amount
-    with brownie.reverts():
-        ycrv.sweep_yvecrv({'from':ycrv.sweep_recipient()})
-    yveCrv.transfer(ycrv, 1e18,{'from':whale_yvecrv})
-    bal_before = yveCrv.balanceOf(gov)
-    ycrv.sweep_yvecrv({'from':ycrv.sweep_recipient()})
-    yveCrv.balanceOf(gov) > bal_before
-
 def test_mint(ycrv, yveCrv, crv, whale_crv, user, voter, gov, accounts):
     amount = 100e18
     before = crv.balanceOf(whale_crv)

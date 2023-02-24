@@ -38,8 +38,9 @@ interface IGaugeController {
 }
 
 interface FeeDistribution {
-    function claimTokens(address, IERC20[] calldata)
-        external returns (uint256[] memory);
+    function claimToken(address user, IERC20 token)
+        external
+        returns (uint256);
     
     function getUserTimeCursor(address user) external view returns (uint256);
 }
@@ -52,7 +53,7 @@ contract StrategyProxy {
     uint256 private constant WEEK = 604800; // Number of seconds in a week
 
     /// @notice Yearn's voter proxy. Typically referred to as "voter".
-    IProxy public constant proxy = IProxy(0xF147b8125d2ef93FB6965Db97D6746952a133934); // incorrect - yet to be deployed
+    IProxy public constant proxy = IProxy(0xaaBfdc6F77c22E491eD07Fe43786ce59ecDAb891); // incorrect - yet to be deployed
 
     /// @notice Balancer's token minter.
     address public constant mintr = 0x239e55F427D44C3cc793f49bFB507ebe76638a2b; // correct
@@ -69,7 +70,7 @@ contract StrategyProxy {
     /// @notice Recipient of weekly bb-a-USD admin fees. Default of st-yBAL strategy address.
     address public feeRecipient = 0x93A62dA5a14C80f265DAbC077fCEE437B1a0Efde; // incorrect - st-yBAL strat yet to be deployed
 
-    address[] public feeTokens;
+    // address[] public feeTokens;
 
     /// @notice Balancer's fee distributor contract.
     FeeDistribution public constant feeDistribution = FeeDistribution(0xD3cf852898b21fc233251427c2DC93d3d604F3BB); // correct
@@ -267,7 +268,7 @@ contract StrategyProxy {
         if (amount > 0) proxy.increaseAmount(amount);
     }
 
-    /// @notice Extend veBAL lock time to maximum amount of 4 years.
+    /// @notice Extend veBAL lock time to maximum amount of 1 year.
     /// @dev Must be called by governance or locker.
     function maxLock() external {
         require(msg.sender == governance || lockers[msg.sender], "!locker");
@@ -373,9 +374,9 @@ contract StrategyProxy {
         require(msg.sender == feeRecipient, "!approved");
         if (!claimable()) return;
 
-        // aura checkpoint themselves 4 times before claiming fees ???
-        // uint256[] memory claimed = feeDistribution.claimTokens(address(proxy), feeTokens);
-        _claim(feeTokens);
+        feeDistribution.claimToken(address(proxy), IERC20(bal));
+        feeDistribution.claimToken(address(proxy), IERC20(bbausd));
+        
         lastTimeCursor = feeDistribution.getUserTimeCursor(address(proxy));
         uint256 amount;
 
@@ -390,10 +391,6 @@ contract StrategyProxy {
             proxy.safeExecute(bbausd, 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
             emit AdminFeesClaimed(_recipient, amount);
         }
-    }
-
-    function _claim (address[] calldata _feeTokens) internal {
-        feeDistribution.claimTokens(address(proxy), _feeTokens);
     }
 
     /// @notice Check if it has been one week since last admin fee claim.
@@ -463,10 +460,10 @@ contract StrategyProxy {
         return true;
     }
 
-    function setFeeTokens(address[] calldata tokens) external {
-		require(msg.sender == governance, "!governance");
-		feeTokens = tokens;
-	}
+    // function setFeeTokens(address[] calldata tokens) external {
+	// 	require(msg.sender == governance, "!governance");
+	// 	feeTokens = tokens;
+	// }
 
     function _transferBalance(address _token) internal {
         proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, IERC20(_token).balanceOf(address(proxy))));

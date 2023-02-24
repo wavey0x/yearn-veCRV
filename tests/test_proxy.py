@@ -1,27 +1,37 @@
 import math, time, brownie
-from brownie import Contract, web3, StrategyProxy, ZERO_ADDRESS
+from brownie import Contract, web3, ZERO_ADDRESS
 
 
-def test_proxy(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vault, fee_distributor, 
-    strategy, strategist, amount, user, crv3, chain, whale_3crv, gov):
+def test_proxy(accounts, voter, new_proxy, fee_distributor, bal, bbausd, balweth, chain, whale_bal, whale_bbausd, gov, user):
     WEEK = 60 * 60 * 24 * 7
-    max = chain.time() + (365 * 60 * 60 * 24 * 4)
+    max = chain.time() + (365 * 60 * 60 * 24)
     locker = accounts[2]
     new_proxy.approveLocker(locker,{'from':gov})
-    vecrv = Contract(new_proxy.veCRV())
-    lock_end = vecrv.locked__end(voter)
+    vebal = Contract(new_proxy.veBAL())
 
-    new_proxy.maxLock({'from':gov})
+    # createLock = first lock
+    balweth.transfer(voter, 1e18,{'from':user})
+    voter.createLock(1e18, chain.time() + (28 * 60 * 60 * 24), {'from':gov}) # 1 balweth lp token, for four weeks
+    lock_end = vebal.locked__end(voter)
+    print('lock_end: ', lock_end) # 23 march 2023
+    
+    new_proxy.lock({'from':gov})
+    print('voter.strategy(): ', voter.strategy())
+    print('voter.governance(): ', voter.governance())
+    print('new_proxy: ', new_proxy)
+    print('new_proxy.governance(): ', new_proxy.governance())
+    print('gov: ', gov)
+    new_proxy.maxLock({'from':gov}) # issue with safeexecute in voter
     if int(max/WEEK)*WEEK == lock_end:
-        assert vecrv.locked__end(voter) == lock_end
+        assert vebal.locked__end(voter) == lock_end
         chain.sleep(60*60*24*7)
         chain.mine()
         new_proxy.maxLock({'from':gov})
-    assert vecrv.locked__end(voter) > lock_end
+    assert vebal.locked__end(voter) > lock_end
 
     chain.undo(1)
     new_proxy.maxLock({'from':locker})
-    assert vecrv.locked__end(voter) > lock_end
+    assert vebal.locked__end(voter) > lock_end
 
     chain.undo(1)
     new_proxy.revokeLocker(locker,{'from':gov})
@@ -29,7 +39,7 @@ def test_proxy(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vaul
         new_proxy.maxLock({'from':locker})
 
     # Test voting from voter approved account
-    gauge = '0x8Fa728F393588E8D8dD1ca397E9a710E53fA553a'
+    gauge = '0x9703C0144e8b68280b97d9e30aC6f979Dd6A38d7' # stg/bbausd
     new_proxy.vote(gauge,0, {'from':gov})
     chain.undo(1)
 
@@ -47,16 +57,16 @@ def test_proxy(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vaul
     with brownie.reverts("!voter"):
         new_proxy.vote(gauge,0, {'from':voter_user})
 
-    crv3.transfer(fee_distributor, 100_000e18, {'from':whale_3crv})
+    bal.transfer(fee_distributor, 100_000e18, {'from':whale_bal})
+    bbausd.transfer(fee_distributor, 100_000e18, {'from':whale_bbausd})
     chain.sleep(WEEK)
     chain.mine()
-    y = accounts.at(new_proxy.feeRecipient(),force=True)
-    admin = accounts.at(fee_distributor.admin(),force=True)
-    fee_distributor.checkpoint_token({'from':admin})
-    tx = new_proxy.claim(new_proxy,{'from':y})
+    y = accounts.at(new_proxy.feeRecipient(),force=True) # y will be strategystyBAL/strategystyBAL for now
+    # admin = accounts.at(fee_distributor.admin(),force=True)
+    # fee_distributor.checkpoint_token({'from':admin})
+    tx = new_proxy.claim(new_proxy,{'from':y}) # change recipient from new_proxy to y ???
 
-def test_approve_adapter(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vault, fee_distributor, 
-    strategy, strategist, amount, user, crv3, chain, whale_3crv, gov):
+def test_approve_adapter(accounts, voter, new_proxy, bal, bbausd, chain, whale_bal, whale_bbausd, gov):
     # LP tokens are blocked
     # Approved gauge tokens are blocked
     # Pools are only blocked if pool address == lp token address
@@ -126,8 +136,8 @@ def test_approve_adapter(accounts, live_strat, voter, token, new_proxy, whale_yv
     locker = accounts[2]
     new_proxy = Contract.from_abi('',new_proxy.address,new_proxy.abi,owner=gov)
     new_proxy.approveLocker(locker)
-    vecrv = Contract(new_proxy.veCRV())
-    lock_end = vecrv.locked__end(voter)
+    vebal = Contract(new_proxy.veBAL())
+    lock_end = vebal.locked__end(voter)
     for key in TEST_CASES:
         name = TEST_CASES[key]['name']
         should_succeed = TEST_CASES[key]['should_succeed']

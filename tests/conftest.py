@@ -1,45 +1,31 @@
 import pytest, requests
-from brownie import ZERO_ADDRESS, config, Contract, interface, StrategyProxy, yCRV, ZapYCRV, web3, chain
+from brownie import ZERO_ADDRESS, config, Contract, interface, StrategyProxy, BalancerYBALVoter, yBAL, web3, chain
 
 # This causes test not to re-run fixtures on each run
 @pytest.fixture(autouse=True)
 def isolation(fn_isolation):
     pass
 
-# @pytest.fixture(scope="module", autouse=True)
-# def tenderly_fork(web3, chain):
-#     fork_base_url = "https://simulate.yearn.network/fork"
-#     payload = {"network_id": str(chain.id)}
-#     resp = requests.post(fork_base_url, headers={}, json=payload)
-#     fork_id = resp.json()["simulation_fork"]["id"]
-#     fork_rpc_url = f"https://rpc.tenderly.co/fork/{fork_id}"
-#     print(fork_rpc_url)
-#     tenderly_provider = web3.HTTPProvider(fork_rpc_url, {"timeout": 600})
-#     web3.provider = tenderly_provider
-#     print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
+@pytest.fixture(scope="module", autouse=True)
+def tenderly_fork(web3, chain):
+    fork_base_url = "https://simulate.yearn.network/fork"
+    payload = {"network_id": str(chain.id)}
+    resp = requests.post(fork_base_url, headers={}, json=payload)
+    fork_id = resp.json()["simulation_fork"]["id"]
+    fork_rpc_url = f"https://rpc.tenderly.co/fork/{fork_id}"
+    print(fork_rpc_url)
+    tenderly_provider = web3.HTTPProvider(fork_rpc_url, {"timeout": 600})
+    web3.provider = tenderly_provider
+    print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
 
 @pytest.fixture
 def gov(accounts):
     yield accounts.at("0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52", force=True)
     #yield accounts.at("0x6AFB7c9a6E8F34a3E0eC6b734942a5589A84F44C", force=True)
 
-# @pytest.fixture
-# def yvboost():
-#     yield Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a")
-
-# @pytest.fixture
-# def yveCrv():
-#     yield Contract("0xc5bDdf9843308380375a611c18B50Fb9341f502A")
-
-# @pytest.fixture
-# def whale_yvboost(accounts):
-#     yield accounts.at("0x25431341A5800759268a6aC1d3CD91C029D7d9CA", force=True)
-
 @pytest.fixture
-def user(accounts, yveCrv, yvboost, crv, whale_yvecrv, whale_crv, whale_yvboost, cvxcrv, whale_cvxcrv):
-    crv.transfer(accounts[0], 500e18,{'from':whale_crv})
-    yveCrv.transfer(accounts[0], 1_000e18,{'from':whale_yvecrv})
-    cvxcrv.transfer(accounts[0], 1_000e18,{'from':whale_cvxcrv})
+def user(accounts, balweth, whale_balweth):
+    balweth.transfer(accounts[0], 500e18,{'from':whale_balweth})
     yield accounts[0]
 
 @pytest.fixture
@@ -66,6 +52,10 @@ def strategist(accounts):
 def keeper(accounts):
     yield accounts.at("0x13dAda6157Fee283723c0254F43FF1FdADe4EEd6", force=True)
 
+@pytest.fixture
+def authorizer(accounts):
+    yield accounts.at("0x10a19e7ee7d7f8a52822f6817de8ea18204f2e4f", force=True) #balancer dao multisig
+
 
 @pytest.fixture
 def rando(accounts):
@@ -79,16 +69,28 @@ def token():
 
 
 @pytest.fixture
-def crv():
-    yield Contract("0xD533a949740bb3306d119CC777fa900bA034cd52")
+def bal():
+    yield Contract("0xba100000625a3754423978a60c9317c58a424e3D")
+
+@pytest.fixture
+def bbausd():
+    yield Contract("0xA13a9247ea42D743238089903570127DdA72fE44")
+
+@pytest.fixture
+def balweth():
+    yield Contract("0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56")
 
 # @pytest.fixture
 # def cvxcrv():
 #     yield Contract("0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7")
 
+# @pytest.fixture
+# def whale_cvxcrv(accounts):
+#     yield accounts.at("0x3Fe65692bfCD0e6CF84cB1E7d24108E434A7587e", force=True)
+
 @pytest.fixture
-def whale_cvxcrv(accounts):
-    yield accounts.at("0x3Fe65692bfCD0e6CF84cB1E7d24108E434A7587e", force=True)
+def smart_wallet_checker():
+    yield Contract("0x7869296Efd0a76872fEE62A058C8fBca5c1c826C")
 
 @pytest.fixture
 def amount(accounts, token, gov):
@@ -101,9 +103,9 @@ def amount(accounts, token, gov):
     yield amount
 
 
-@pytest.fixture
-def vault(pm, gov, rewards, guardian, management, token):
-    yield Contract('0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a')
+# @pytest.fixture
+# def vault(pm, gov, rewards, guardian, management, token):
+#     yield Contract('0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a') # yvBOOST
 
 @pytest.fixture
 def eth_whale(accounts):
@@ -130,31 +132,31 @@ def live_strat():
     yield live_strat
 
 @pytest.fixture
-def ycrv(strategist):
-    yield strategist.deploy(yCRV)
+def ybal(strategist):
+    yield strategist.deploy(yBAL)
 
 @pytest.fixture
 def vault_abi():
-    return Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a").abi
+    return Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a").abi #yvBOOST
 
 @pytest.fixture
-def st_ycrv(strategist, ycrv, gov, yveCrv,vault_abi, user):
+def st_ybal(strategist, ybal, gov, vault_abi, user):
     registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
-    address = registry.newVault(ycrv,gov,gov,"Staked YCRV","st-YCRV",{'from':gov}).return_value
+    address = registry.newVault(ybal,gov,gov,"Staked YBAL","st-YBAL",{'from':gov}).return_value
     v = Contract.from_abi("pool", address, vault_abi)
     v.setDepositLimit(100e25, {'from':gov})
-    ycrv.approve(v, 2**256-1, {'from':user})
-    yveCrv.approve(ycrv, 2**256-1, {'from':user})
-    ycrv.burn_to_mint(101e18, {'from':user})
+    balweth.approve(ybal, 2**256-1, {'from':user})
+    ybal.mint(101e18, {'from':user})
+    ybal.approve(v, 2**256-1, {'from':user})
     v.deposit(100e18,{'from':user})
-    ycrv.transfer(v, 1e18,{'from':user}) # Increase pps a bit
+    ybal.transfer(v, 1e18,{'from':user}) # Increase pps a bit
     yield v
 
 @pytest.fixture
-def pool(strategist, gov, ycrv, yveCrv, vault_abi, crv, user):
-    factory = Contract('0xb9fc157394af804a3578134a6585c0dc9cc990d4', owner=strategist)
-    name = 'Yearn CRV'
-    symbol = 'yCRV'
+def pool(strategist, gov, ybal, vault_abi, bal, user):
+    factory = Contract('0xb9fc157394af804a3578134a6585c0dc9cc990d4', owner=strategist) # balancer pool not curve pool
+    name = 'Yearn Bal'
+    symbol = 'yBAL'
     coins = [
         '0xD533a949740bb3306d119CC777fa900bA034cd52',
         ycrv.address,
@@ -201,22 +203,26 @@ def zap(ycrv, strategist, st_ycrv, lp_ycrv, pool):
     yield z
 
 @pytest.fixture
-def strategy(strategist, live_strat, 
-    keeper, vault, Strategy, gov, token, crv3, usdc,
-    trade_factory, ymechs_safe
-    ):
+def strategy():
+    yield Contract("0xAf73A48E1d7e8300C91fFB74b8f5e721fBFC5873")
 
-    live_strat.setDoHealthCheck(False, {"from": gov})
+# @pytest.fixture
+# def strategy(strategist, live_strat, 
+#     keeper, vault, Strategy, gov, token, crv3, usdc,
+#     trade_factory, ymechs_safe
+#     ):
 
-    new_strategy = strategist.deploy(Strategy, vault)
-    tx = vault.migrateStrategy(live_strat, new_strategy, {"from":gov})
+#     live_strat.setDoHealthCheck(False, {"from": gov})
 
-    new_strategy.setKeeper(keeper, {"from":gov})
+#     new_strategy = strategist.deploy(Strategy, vault)
+#     tx = vault.migrateStrategy(live_strat, new_strategy, {"from":gov})
 
-    trade_factory.grantRole(trade_factory.STRATEGY(), new_strategy.address, {"from": ymechs_safe, "gas_price": "0 gwei"})
-    new_strategy.setTradeFactory(trade_factory.address, {"from": gov})
+#     new_strategy.setKeeper(keeper, {"from":gov})
 
-    yield new_strategy
+#     trade_factory.grantRole(trade_factory.STRATEGY(), new_strategy.address, {"from": ymechs_safe, "gas_price": "0 gwei"})
+#     new_strategy.setTradeFactory(trade_factory.address, {"from": gov})
+
+#     yield new_strategy
 
 
 @pytest.fixture
@@ -240,23 +246,26 @@ def old_proxy(strategy, gov):
     #p.approveStrategy(strategy.address, strategy.address, {"from":gov}) # Self address as gauge
     yield p
 
+@pytest.fixture
+def voter(strategist, gov, smart_wallet_checker, authorizer):
+    v = strategist.deploy(BalancerYBALVoter)
+    v.setGovernance(gov)
+    smart_wallet_checker.allowlistAddress(v, {"from": authorizer}) # balancer to whitelist our voter
+    yield v
 
+# @pytest.fixture
+# def voter():
+#     yield Contract("0xF147b8125d2ef93FB6965Db97D6746952a133934")
 
 @pytest.fixture
-def voter():
-    yield Contract("0xF147b8125d2ef93FB6965Db97D6746952a133934")
-
-@pytest.fixture
-def new_proxy(strategy, yveCrv, strategist, gov, voter):
+def new_proxy(strategy, strategist, gov, voter):
     # yield Contract(web3.ens.resolve('curve-proxy.ychad.eth'))
     p = strategist.deploy(StrategyProxy)
     # Set up new proxy
     p.setGovernance(gov)
-    p.setFeeRecipient(strategy, {"from": gov})
+    p.setFeeRecipient(strategy, {"from": gov}) # StrategyStYBAL
     voter.setStrategy(p, {"from": gov})
     strategy.setProxy(p, {"from": gov})
-    yveCrv.setProxy(p, {"from": gov})
-    yveCrv.setFeeDistribution(ZERO_ADDRESS, {"from": gov})
     yield p
 
 @pytest.fixture
@@ -265,7 +274,7 @@ def yveCrv(token):
 
 @pytest.fixture
 def fee_distributor(token):
-    yield Contract('0xA464e6DCda8AC41e03616F95f4BC98a13b8922Dc')
+    yield Contract('0xD3cf852898b21fc233251427c2DC93d3d604F3BB')
 
 
 @pytest.fixture
@@ -273,16 +282,16 @@ def whale_eth(accounts):
     yield accounts.at("0x73BCEb1Cd57C711feaC4224D062b0F6ff338501e", force=True)
 
 @pytest.fixture
-def whale_yvecrv(accounts):
-    yield accounts.at("0x10B47177E92Ef9D5C6059055d92DdF6290848991", force=True)
+def whale_bbausd(accounts):
+    yield accounts.at("0xBA12222222228d8Ba445958a75a0704d566BF2C8", force=True)
 
 @pytest.fixture
-def whale_3crv(accounts):
-    yield accounts.at("0x43b4FdFD4Ff969587185cDB6f0BD875c5Fc83f8c", force=True)
+def whale_bal(accounts):
+    yield accounts.at("0x10A19e7eE7d7F8a52822f6817de8ea18204F2e4f", force=True)
 
 @pytest.fixture
-def whale_crv(accounts):
-    yield accounts.at("0x5f3b5DfEb7B28CDbD7FAba78963EE202a494e2A2", force=True)
+def whale_balweth(accounts):
+    yield accounts.at("0xBA12222222228d8Ba445958a75a0704d566BF2C8", force=True)
 
 @pytest.fixture
 def sushiswap_crv(accounts):
@@ -300,14 +309,6 @@ def sushiswap(Contract):
 #     crv.approve(pool, 2**256-1, {'from':user})
 #     # pool.add_liquidity([100e18,100e18], 0, user, {'from':user})
 #     yield pool
-
-@pytest.fixture
-def not_banteg(accounts):
-    yield accounts.at("0x0035Fc5208eF989c28d47e552E92b0C507D2B318", force=True)
-
-@pytest.fixture
-def klim(accounts):
-    yield accounts.at("0x279a7DBFaE376427FFac52fcb0883147D42165FF", force=True) # airdropper
 
 @pytest.fixture
 def weth_amount(accounts, weth, gov):
