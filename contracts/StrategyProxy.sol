@@ -3,14 +3,11 @@
 pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../interfaces/yearn/IProxy.sol";
 import "../interfaces/curve/Mintr.sol";
-// import "../interfaces/curve/FeeDistribution.sol";
 import "../interfaces/curve/Gauge.sol";
 
 library SafeProxy {
@@ -459,11 +456,6 @@ contract StrategyProxy {
         catch {} // @dev: Since we expect try should fail, proceed without any catch logic error here.
         return true;
     }
-
-    // function setFeeTokens(address[] calldata tokens) external {
-	// 	require(msg.sender == governance, "!governance");
-	// 	feeTokens = tokens;
-	// }
 
     function _transferBalance(address _token) internal {
         proxy.safeExecute(_token, 0, abi.encodeWithSignature("transfer(address,uint256)", msg.sender, IERC20(_token).balanceOf(address(proxy))));
