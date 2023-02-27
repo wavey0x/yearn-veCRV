@@ -45,7 +45,7 @@ contract Strategy is BaseStrategy {
 
     constructor(address _vault) BaseStrategy(_vault) public {
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012;
-        tradeFactory = 0x7BAF843e06095f68F4990Ca50161C2C4E4e01ec6;
+        tradeFactory = 0xb634316E06cC0B358437CbadD4dC94F1D3a92B3b;
         proxy = IVoter(voter).strategy();
     }
 
