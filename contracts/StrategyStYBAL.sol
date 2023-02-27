@@ -5,10 +5,8 @@ pragma solidity ^0.8.15;
 pragma experimental ABIEncoderV2;
 
 import { BaseStrategy } from "@yearnvaults/contracts/BaseStrategy.sol";
-// import {SafeERC20, SafeMath, IERC20, Address} from "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -24,10 +22,6 @@ interface IVoterProxy {
     function claimable() external view returns (bool);
 }
 
-// interface IBaseFee {
-//     function isCurrentBaseFeeAcceptable() external view returns (bool);
-// }
-
 interface IVoter {
     function strategy() external view returns (address);
 }
@@ -39,7 +33,7 @@ contract Strategy is BaseStrategy {
     uint profitThreshold = 5_000e18;
     address public tradeFactory;
     address public proxy;
-    address public voter = 0x8c810f835b57500053aA5692aFBF48E3C835e357; // incorrect. we need to deploy our veBAL voter
+    address public constant voter = 0x8c810f835b57500053aA5692aFBF48E3C835e357; // TODO: Set to balancer voter
     IERC20 internal constant bbausd = IERC20(0xA13a9247ea42D743238089903570127DdA72fE44);
     IERC20 internal constant bal = IERC20(0xba100000625a3754423978a60c9317c58a424e3D);
     bool public ignoreClaim;
@@ -160,12 +154,6 @@ contract Strategy is BaseStrategy {
         // Hardcoding this strategy address for safety
         IVoterProxy(proxy).claim(address(this));
     }
-
-    // function isBaseFeeAcceptable() internal view returns (bool) {
-    //     return
-    //         IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
-    //             .isCurrentBaseFeeAcceptable();
-    // }
 
     function balanceOfBbausd() public view returns (uint256) {
         return bbausd.balanceOf(address(this));
