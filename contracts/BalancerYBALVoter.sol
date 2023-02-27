@@ -31,7 +31,7 @@ contract BalancerYBALVoter {
     function initialize(
         address _veContract,
         address _tokenToLock,
-        string _name
+        string memory _name
 
     ) public {
         require(!isInitialized, "Contract is already initialized");
@@ -44,21 +44,21 @@ contract BalancerYBALVoter {
         isInitialized = true;
     }
     
-    function getName() external pure returns (string memory) {
+    function getName() external view returns (string memory) {
         return name;
     }
 
     function createLock(uint _value, uint _unlockTime) external {
         require(msg.sender == strategy || msg.sender == governance, "!authorized");
-        IERC20(balweth).safeApprove(escrow, 0);
-        IERC20(balweth).safeApprove(escrow, _value);
+        IERC20(token).safeApprove(escrow, 0);
+        IERC20(token).safeApprove(escrow, _value);
         VoteEscrow(escrow).create_lock(_value, _unlockTime);
     }
     
     function increaseAmount(uint _value) external {
         require(msg.sender == strategy || msg.sender == governance, "!authorized");
-        IERC20(balweth).safeApprove(escrow, 0);
-        IERC20(balweth).safeApprove(escrow, _value);
+        IERC20(token).safeApprove(escrow, 0);
+        IERC20(token).safeApprove(escrow, _value);
         VoteEscrow(escrow).increase_amount(_value);
     }
     

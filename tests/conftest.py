@@ -68,10 +68,13 @@ def token():
     yield Contract(token_address)
 
 @pytest.fixture
-def escrow():
-    escrow = "0xC128a9954e6c874eA3d62ce62B468bA073093F25"  # veBAL addr
-    yield Contract(escrow)
+def vebal():
+    vebal = "0xC128a9954e6c874eA3d62ce62B468bA073093F25"  # veBAL addr
+    yield Contract(vebal)
 
+@pytest.fixture
+def name():
+    yield "BalancerYBALVoter"
 
 @pytest.fixture
 def bal():
@@ -252,9 +255,9 @@ def old_proxy(strategy, gov):
     yield p
 
 @pytest.fixture
-def voter(strategist, gov, smart_wallet_checker, authorizer):
+def voter(strategist, gov, smart_wallet_checker, authorizer, vebal, balweth, name):
     v = strategist.deploy(BalancerYBALVoter)
-    v.initialize(escrow)
+    v.initialize(vebal, balweth, name)
     v.setGovernance(gov)
     smart_wallet_checker.allowlistAddress(v, {"from": authorizer}) # balancer to whitelist our voter
     yield v
