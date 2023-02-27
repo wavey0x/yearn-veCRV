@@ -231,14 +231,15 @@ contract Strategy is BaseStrategy {
     }
 
     function _removeTradeFactoryPermissions(bool _disableTf) internal {
-        tradeFactory = address(0);
+        address tf = tradeFactory;
         uint length = tokenList.length();
         for (uint i; i < length; i++) {
             address token = tokenList.at(i);
-            IERC20(token).safeApprove(tradeFactory, 0);
-            if (_disableTf) ITradeFactory(tradeFactory).disable(token, address(want));
+            IERC20(token).safeApprove(tf, 0);
+            if (_disableTf) ITradeFactory(tf).disable(token, address(want));
         }
         delete tokenList;
+        tradeFactory = address(0);
     }
 
     function isOnTokenList(address _token) internal view returns (bool) {
