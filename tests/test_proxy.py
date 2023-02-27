@@ -4,6 +4,7 @@ from brownie import Contract, web3, ZERO_ADDRESS
 
 def test_proxy(accounts, voter, new_proxy, fee_distributor, bal, bbausd, balweth, chain, whale_bal, whale_bbausd, gov, user):
     WEEK = 60 * 60 * 24 * 7
+    DAY = 60 * 60 * 24
     max = chain.time() + (365 * 60 * 60 * 24)
     locker = accounts[2]
     new_proxy.approveLocker(locker,{'from':gov})
@@ -63,6 +64,23 @@ def test_proxy(accounts, voter, new_proxy, fee_distributor, bal, bbausd, balweth
     bbausd.transfer(fee_distributor, 100_000e18, {'from':whale_bbausd})
     chain.sleep(WEEK)
     chain.mine()
+    y = accounts.at(new_proxy.feeRecipient(),force=True) # y will be strategystyBAL/strategystyBAL for now
+    # admin = accounts.at(fee_distributor.admin(),force=True)
+    # fee_distributor.checkpoint_token({'from':admin})
+    tx = new_proxy.claim(new_proxy,{'from':y}) # change recipient from new_proxy to y ???
+
+    last_time_cursor = new_proxy.lastTimeCursor()
+    print("last_time_cursor:" , last_time_cursor)
+
+    #test second claim
+    bal.transfer(fee_distributor, 100_000e18, {'from':whale_bal})
+    bbausd.transfer(fee_distributor, 100_000e18, {'from':whale_bbausd})
+    chain.sleep(last_time_cursor - chain.time())
+    chain.mine()
+    assert new_proxy.claimable() == False
+    chain.sleep((last_time_cursor - chain.time()) + DAY)
+    chain.mine()
+    assert new_proxy.claimable() == True
     y = accounts.at(new_proxy.feeRecipient(),force=True) # y will be strategystyBAL/strategystyBAL for now
     # admin = accounts.at(fee_distributor.admin(),force=True)
     # fee_distributor.checkpoint_token({'from':admin})
