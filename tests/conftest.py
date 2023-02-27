@@ -67,6 +67,11 @@ def token():
     token_address = "0xc5bDdf9843308380375a611c18B50Fb9341f502A"  # this should be the address of the ERC-20 used by the strategy/vault
     yield Contract(token_address)
 
+@pytest.fixture
+def escrow():
+    escrow = "0xC128a9954e6c874eA3d62ce62B468bA073093F25"  # veBAL addr
+    yield Contract(escrow)
+
 
 @pytest.fixture
 def bal():
@@ -249,6 +254,7 @@ def old_proxy(strategy, gov):
 @pytest.fixture
 def voter(strategist, gov, smart_wallet_checker, authorizer):
     v = strategist.deploy(BalancerYBALVoter)
+    v.initialize(escrow)
     v.setGovernance(gov)
     smart_wallet_checker.allowlistAddress(v, {"from": authorizer}) # balancer to whitelist our voter
     yield v

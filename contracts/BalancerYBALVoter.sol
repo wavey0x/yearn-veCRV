@@ -16,20 +16,36 @@ interface VoteEscrow {
 
 contract BalancerYBALVoter {
     using SafeERC20 for IERC20;
-    address constant public bal = address(0xba100000625a3754423978a60c9317c58a424e3D);
-    address constant public balweth = address(0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56);
-    
-    address constant public escrow = address(0xC128a9954e6c874eA3d62ce62B468bA073093F25);
-    
+    address public escrow; // veContract addr
+    address public token;
     address public governance;
-    address public strategy;
+    address public strategy; // StrategyProxy
+    string public name;
+
+    bool isInitialized = false;
     
     constructor() public {
         governance = msg.sender;
     }
+
+    function initialize(
+        address _veContract,
+        address _tokenToLock,
+        string _name
+
+    ) public {
+        require(!isInitialized, "Contract is already initialized");
+        require(msg.sender == governance, "!governance");
+
+        escrow = _veContract;
+        token = _tokenToLock;
+        name = _name;
+
+        isInitialized = true;
+    }
     
     function getName() external pure returns (string memory) {
-        return "BalancerYBALVoter";
+        return name;
     }
 
     function createLock(uint _value, uint _unlockTime) external {
