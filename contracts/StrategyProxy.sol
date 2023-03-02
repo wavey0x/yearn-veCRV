@@ -50,7 +50,7 @@ contract StrategyProxy {
     uint256 private constant WEEK = 604800; // Number of seconds in a week
 
     /// @notice Yearn's voter proxy. Typically referred to as "voter".
-    IProxy public constant proxy = IProxy(0x8c810f835b57500053aA5692aFBF48E3C835e357); // incorrect - yet to be deployed
+    IProxy public constant proxy = IProxy(0x8c810f835b57500053aA5692aFBF48E3C835e357); // TODO: Set to balancer voter
 
     /// @notice Balancer's token minter.
     address public constant mintr = 0x239e55F427D44C3cc793f49bFB507ebe76638a2b; // correct

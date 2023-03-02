@@ -1,5 +1,5 @@
 import pytest, requests
-from brownie import ZERO_ADDRESS, config, Contract, interface, StrategyProxy, BalancerYBALVoter, yBAL, web3, chain
+from brownie import ZERO_ADDRESS, config, Contract, interface, Strategy, StrategyProxy, BalancerYBALVoter, yBAL, web3, chain
 
 # This causes test not to re-run fixtures on each run
 @pytest.fixture(autouse=True)
@@ -111,9 +111,10 @@ def amount(accounts, token, gov):
     yield amount
 
 
-# @pytest.fixture
-# def vault(pm, gov, rewards, guardian, management, token):
-#     yield Contract('0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a') # yvBOOST
+@pytest.fixture
+def vault(pm, gov, rewards, guardian, management, token):
+
+    yield vault
 
 @pytest.fixture
 def eth_whale(accounts):
@@ -148,9 +149,9 @@ def vault_abi():
     return Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a").abi #yvBOOST
 
 @pytest.fixture
-def st_ybal(strategist, ybal, gov, vault_abi, user):
+def st_ybal(strategist, ybal, gov, vault_abi, user, balweth):
     registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
-    address = registry.newVault(ybal,gov,gov,"Staked YBAL","st-YBAL",{'from':gov}).return_value
+    address = registry.newVault(ybal,gov,gov,"Staked YBAL","st-YBAL",0,{'from':gov}).return_value
     v = Contract.from_abi("pool", address, vault_abi)
     v.setDepositLimit(100e25, {'from':gov})
     balweth.approve(ybal, 2**256-1, {'from':user})
@@ -210,27 +211,22 @@ def zap(ycrv, strategist, st_ycrv, lp_ycrv, pool):
     z = strategist.deploy(ZapYCRV)
     yield z
 
-@pytest.fixture
-def strategy():
-    yield Contract("0xAf73A48E1d7e8300C91fFB74b8f5e721fBFC5873")
-
 # @pytest.fixture
-# def strategy(strategist, live_strat, 
-#     keeper, vault, Strategy, gov, token, crv3, usdc,
-#     trade_factory, ymechs_safe
-#     ):
+# def strategy():
+#     yield Contract("0xAf73A48E1d7e8300C91fFB74b8f5e721fBFC5873") # StrategyStYBAL
 
-#     live_strat.setDoHealthCheck(False, {"from": gov})
+@pytest.fixture
+def st_strategy(strategist, live_strat, 
+    keeper, vault, Strategy, gov, token, crv3, usdc,
+    trade_factory, ymechs_safe, st_ybal
+    ):
+    st_strat = strategist.deploy(Strategy, st_ybal)
+    st_strat.setKeeper(keeper, {"from":gov})
 
-#     new_strategy = strategist.deploy(Strategy, vault)
-#     tx = vault.migrateStrategy(live_strat, new_strategy, {"from":gov})
+    trade_factory.grantRole(trade_factory.STRATEGY(), st_strat.address, {"from": ymechs_safe, "gas_price": "0 gwei"})
+    st_strat.setTradeFactory(trade_factory.address, {"from": gov})
 
-#     new_strategy.setKeeper(keeper, {"from":gov})
-
-#     trade_factory.grantRole(trade_factory.STRATEGY(), new_strategy.address, {"from": ymechs_safe, "gas_price": "0 gwei"})
-#     new_strategy.setTradeFactory(trade_factory.address, {"from": gov})
-
-#     yield new_strategy
+    yield st_strat
 
 
 @pytest.fixture
@@ -267,14 +263,14 @@ def voter(strategist, gov, smart_wallet_checker, authorizer, vebal, balweth, nam
 #     yield Contract("0xF147b8125d2ef93FB6965Db97D6746952a133934")
 
 @pytest.fixture
-def new_proxy(strategy, strategist, gov, voter):
+def new_proxy(st_strategy, strategist, gov, voter):
     # yield Contract(web3.ens.resolve('curve-proxy.ychad.eth'))
     p = strategist.deploy(StrategyProxy)
     # Set up new proxy
     p.setGovernance(gov)
-    p.setFeeRecipient(strategy, {"from": gov}) # StrategyStYBAL
+    p.setFeeRecipient(st_strategy, {"from": gov}) # StrategyStYBAL
     voter.setStrategy(p, {"from": gov})
-    strategy.setProxy(p, {"from": gov})
+    st_strategy.setProxy(p, {"from": gov})
     yield p
 
 @pytest.fixture

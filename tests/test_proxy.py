@@ -2,7 +2,7 @@ import math, time, brownie
 from brownie import Contract, web3, ZERO_ADDRESS
 
 
-def test_proxy(accounts, voter, new_proxy, fee_distributor, bal, bbausd, balweth, chain, whale_bal, whale_bbausd, gov, user):
+def test_proxy(accounts, voter, new_proxy, fee_distributor, bal, bbausd, balweth, chain, whale_bal, whale_bbausd, gov, user, st_strategy):
     WEEK = 60 * 60 * 24 * 7
     DAY = 60 * 60 * 24
     max = chain.time() + (365 * 60 * 60 * 24)
@@ -64,16 +64,28 @@ def test_proxy(accounts, voter, new_proxy, fee_distributor, bal, bbausd, balweth
     bbausd.transfer(fee_distributor, 100_000e18, {'from':whale_bbausd})
     chain.sleep(WEEK)
     chain.mine()
-    y = accounts.at(new_proxy.feeRecipient(),force=True) # y will be strategystyBAL/strategystyBAL for now
+
+    bal_balance_before = bal.balanceOf(st_strategy)
+    print('bal_balance_before: ', bal_balance_before)
+    bbausd_balance_before = bbausd.balanceOf(st_strategy)
+    print('bbausd_balance_before: ', bbausd_balance_before)
+
     # admin = accounts.at(fee_distributor.admin(),force=True)
     # fee_distributor.checkpoint_token({'from':admin})
-    tx = new_proxy.claim(new_proxy,{'from':y}) # change recipient from new_proxy to y ???
+    new_proxy.claim(st_strategy,{'from':st_strategy})
+    
+    bal_balance_after = bal.balanceOf(st_strategy)
+    print('bal_balance_after: ', bal_balance_after)
+    # assert bal_balance_after > bal_balance_before
+    bbausd_balance_after = bbausd.balanceOf(st_strategy)
+    print('bbausd_balance_after: ', bbausd_balance_after)
+    # assert bbausd_balance_after > bbausd_balance_before
 
     last_time_cursor = new_proxy.lastTimeCursor()
     print("last_time_cursor:" , last_time_cursor)
 
     #test second claim
-    bal.transfer(fee_distributor, 100_000e18, {'from':whale_bal})
+    bal.transfer(fee_distributor, 14_327e18, {'from':whale_bal})
     bbausd.transfer(fee_distributor, 100_000e18, {'from':whale_bbausd})
     chain.sleep(last_time_cursor - chain.time())
     chain.mine()
@@ -81,10 +93,16 @@ def test_proxy(accounts, voter, new_proxy, fee_distributor, bal, bbausd, balweth
     chain.sleep((last_time_cursor - chain.time()) + DAY)
     chain.mine()
     assert new_proxy.claimable() == True
-    y = accounts.at(new_proxy.feeRecipient(),force=True) # y will be strategystyBAL/strategystyBAL for now
     # admin = accounts.at(fee_distributor.admin(),force=True)
     # fee_distributor.checkpoint_token({'from':admin})
-    tx = new_proxy.claim(new_proxy,{'from':y}) # change recipient from new_proxy to y ???
+    tx = new_proxy.claim(st_strategy,{'from':st_strategy})
+
+    bal_balance_after_2 = bal.balanceOf(st_strategy)
+    print('bal_balance_after_2: ', bal_balance_after_2)
+    # assert bal_balance_after > bal_balance_before
+    bbausd_balance_after_2 = bbausd.balanceOf(st_strategy)
+    print('bbausd_balance_after_2: ', bbausd_balance_after_2)
+    # assert bbausd_balance_after > bbausd_balance_before
 
 def test_approve_adapter(accounts, voter, new_proxy, bal, bbausd, chain, whale_bal, whale_bbausd, gov):
     # LP tokens are blocked
