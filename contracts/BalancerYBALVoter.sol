@@ -2,11 +2,8 @@
 
 pragma solidity ^0.8.15;
 
-// These are the core Yearn libraries
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
-
-import "@yearnvaults/contracts/BaseStrategy.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface VoteEscrow {
     function create_lock(uint, uint) external;
@@ -17,16 +14,10 @@ interface VoteEscrow {
 contract BalancerYBALVoter {
     using SafeERC20 for IERC20;
     address public escrow; // veContract addr
-    address public token;
-    address public governance;
+    address public token; // token to lock
+    address public governance = 0x36666EC6315E9606f03fc6527E396B95bcA4D384;
     address public strategy; // StrategyProxy
     string public name;
-
-    bool isInitialized = false;
-    
-    constructor() public {
-        governance = msg.sender;
-    }
 
     function initialize(
         address _veContract,
@@ -34,14 +25,12 @@ contract BalancerYBALVoter {
         string memory _name
 
     ) public {
-        require(!isInitialized, "Contract is already initialized");
+        require(escrow == address(0), "already initialized");
         require(msg.sender == governance, "!governance");
 
         escrow = _veContract;
         token = _tokenToLock;
         name = _name;
-
-        isInitialized = true;
     }
     
     function getName() external view returns (string memory) {
