@@ -24,7 +24,7 @@ contract BalancerYBALVoter {
         address _tokenToLock,
         string memory _name
 
-    ) public {
+    ) external {
         require(escrow == address(0), "already initialized");
         require(msg.sender == governance, "!governance");
 
