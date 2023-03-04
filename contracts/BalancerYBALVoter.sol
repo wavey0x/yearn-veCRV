@@ -23,7 +23,6 @@ contract BalancerYBALVoter {
         address _veContract,
         address _tokenToLock,
         string memory _name
-
     ) external {
         require(escrow == address(0), "already initialized");
         require(msg.sender == governance, "!governance");
@@ -31,10 +30,6 @@ contract BalancerYBALVoter {
         escrow = _veContract;
         token = _tokenToLock;
         name = _name;
-    }
-    
-    function getName() external view returns (string memory) {
-        return name;
     }
 
     function createLock(uint _value, uint _unlockTime) external {
