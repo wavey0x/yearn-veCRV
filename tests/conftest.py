@@ -1,5 +1,5 @@
 import pytest, requests
-from brownie import ZERO_ADDRESS, config, Contract, interface, Strategy, StrategyProxy, BalancerYBALVoter, yBAL, web3, chain
+from brownie import ZERO_ADDRESS, accounts, config, Contract, interface, Strategy, StrategyProxy, BalancerYBALVoter, yBAL, web3, chain
 
 # This causes test not to re-run fixtures on each run
 @pytest.fixture(autouse=True)
@@ -253,8 +253,9 @@ def old_proxy(strategy, gov):
 @pytest.fixture
 def voter(strategist, gov, smart_wallet_checker, authorizer, vebal, balweth, name):
     v = strategist.deploy(BalancerYBALVoter)
-    v.initialize(vebal, balweth, name)
-    v.setGovernance(gov)
+    gov = accounts.at('0x36666EC6315E9606f03fc6527E396B95bcA4D384', force=True)
+    v.initialize(vebal, balweth, name, {'from':gov})
+    v.setGovernance(gov, {'from':gov})
     smart_wallet_checker.allowlistAddress(v, {"from": authorizer}) # balancer to whitelist our voter
     yield v
 

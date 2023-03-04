@@ -66,10 +66,12 @@ contract BalancerYBALVoter {
         governance = _governance;
     }
     
-    function execute(address to, uint value, bytes calldata data) external returns (bool, bytes memory) {
+    function execute(address payable to, uint value, bytes calldata data) external returns (bool, bytes memory) {
         require(msg.sender == strategy || msg.sender == governance, "!governance");
         (bool success, bytes memory result) = to.call{value:value}(data);
         
         return (success, result);
     }
+
+    receive() external payable {}
 }
