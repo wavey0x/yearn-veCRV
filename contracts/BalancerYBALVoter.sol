@@ -23,7 +23,6 @@ contract BalancerYBALVoter {
         address _veContract,
         address _tokenToLock,
         string memory _name
-
     ) external {
         require(escrow == address(0), "already initialized");
         require(msg.sender == governance, "!governance");
@@ -31,10 +30,6 @@ contract BalancerYBALVoter {
         escrow = _veContract;
         token = _tokenToLock;
         name = _name;
-    }
-    
-    function getName() external view returns (string memory) {
-        return name;
     }
 
     function createLock(uint _value, uint _unlockTime) external {
@@ -66,10 +61,12 @@ contract BalancerYBALVoter {
         governance = _governance;
     }
     
-    function execute(address to, uint value, bytes calldata data) external returns (bool, bytes memory) {
+    function execute(address payable to, uint value, bytes calldata data) external returns (bool, bytes memory) {
         require(msg.sender == strategy || msg.sender == governance, "!governance");
         (bool success, bytes memory result) = to.call{value:value}(data);
         
         return (success, result);
     }
+
+    receive() external payable {}
 }
