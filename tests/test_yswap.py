@@ -18,7 +18,6 @@ def test_yswap(
     crv3,
     crv,
     chain,
-    whale_3crv,
     user,
     trade_factory,
     sushiswap,
@@ -29,19 +28,26 @@ def test_yswap(
     new_proxy,
     voter,
     live_strat,
-    keeper
+    keeper,
+    st_ybal,
+    st_strategy,
+    whale_bal,
+    whale_bbausd,
+    bal,
+    bbausd
 ):
-    vault_before = token.balanceOf(vault)
-    strat_before = token.balanceOf(strategy)
+    vault_before = token.balanceOf(st_ybal)
+    strat_before = token.balanceOf(st_strategy)
 
     # harvest
     chain.sleep(1)
     chain.mine(1)
-    strategy.harvest({"from": strategist})
+    st_strategy.harvest({"from": strategist})
     # assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == (strat_before + vault_before)
 
-    # Simulate a claim by sending some 3Crv to the strategy before harvest
-    crv3.transfer(strategy, brownie.Wei("100 ether"), {"from": whale_3crv})
+    # Simulate a claim by sending some BAL and BBAUSD to the strategy before harvest
+    bal.transfer(strategy, brownie.Wei("100 ether"), {"from": whale_bal})
+    bbausd.transfer(strategy, brownie.Wei("100 ether"), {"from": whale_bbausd})
     strategy.harvest({"from": strategist})
     chain.sleep(60*60*6) # sleep to increase pps
     chain.mine(1)

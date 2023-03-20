@@ -32,21 +32,17 @@ def user(accounts, balweth, whale_balweth):
 def rewards(accounts):
     yield accounts[1]
 
-
 @pytest.fixture
 def guardian(accounts):
     yield accounts[2]
-
 
 @pytest.fixture
 def management(accounts):
     yield accounts.at("0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7", force=True)
 
-
 @pytest.fixture
 def strategist(accounts):
     yield accounts.at("0x6AFB7c9a6E8F34a3E0eC6b734942a5589A84F44C", force=True)
-
 
 @pytest.fixture
 def keeper(accounts):
@@ -56,12 +52,11 @@ def keeper(accounts):
 def authorizer(accounts):
     yield accounts.at("0x10a19e7ee7d7f8a52822f6817de8ea18204f2e4f", force=True) #balancer dao multisig
 
-
 @pytest.fixture
 def rando(accounts):
     yield accounts[6]
 
-
+# currently yvecrv token
 @pytest.fixture
 def token():
     token_address = "0xc5bDdf9843308380375a611c18B50Fb9341f502A"  # this should be the address of the ERC-20 used by the strategy/vault
@@ -250,18 +245,20 @@ def old_proxy(strategy, gov):
     #p.approveStrategy(strategy.address, strategy.address, {"from":gov}) # Self address as gauge
     yield p
 
+# @pytest.fixture
+# def voter(strategist, gov, smart_wallet_checker, authorizer, vebal, balweth, name):
+#     v = strategist.deploy(BalancerYBALVoter)
+#     gov = accounts.at('0x36666EC6315E9606f03fc6527E396B95bcA4D384', force=True)
+#     v.initialize(vebal, balweth, name, {'from':gov})
+#     v.setGovernance(gov, {'from':gov})
+#     smart_wallet_checker.allowlistAddress(v, {"from": authorizer}) # balancer to whitelist our voter
+#     yield v
+
 @pytest.fixture
-def voter(strategist, gov, smart_wallet_checker, authorizer, vebal, balweth, name):
-    v = strategist.deploy(BalancerYBALVoter)
-    gov = accounts.at('0x36666EC6315E9606f03fc6527E396B95bcA4D384', force=True)
-    v.initialize(vebal, balweth, name, {'from':gov})
-    v.setGovernance(gov, {'from':gov})
+def voter(smart_wallet_checker, authorizer):
+    v = Contract("0xBA11E7024cbEB1dd2B401C70A83E0d964144686C")
     smart_wallet_checker.allowlistAddress(v, {"from": authorizer}) # balancer to whitelist our voter
     yield v
-
-# @pytest.fixture
-# def voter():
-#     yield Contract("0xF147b8125d2ef93FB6965Db97D6746952a133934")
 
 @pytest.fixture
 def new_proxy(st_strategy, strategist, gov, voter):

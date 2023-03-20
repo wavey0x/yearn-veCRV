@@ -33,7 +33,7 @@ contract Strategy is BaseStrategy {
     uint profitThreshold = 5_000e18;
     address public tradeFactory;
     address public proxy;
-    address public constant voter = 0x8c810f835b57500053aA5692aFBF48E3C835e357; // TODO: Set to balancer voter
+    address public constant voter = 0xBA11E7024cbEB1dd2B401C70A83E0d964144686C;
     IERC20 internal constant bbausd = IERC20(0xA13a9247ea42D743238089903570127DdA72fE44);
     IERC20 internal constant bal = IERC20(0xba100000625a3754423978a60c9317c58a424e3D);
     bool public ignoreClaim;
@@ -42,7 +42,7 @@ contract Strategy is BaseStrategy {
 
     constructor(address _vault) BaseStrategy(_vault) public {
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012;
-        tradeFactory = 0x7BAF843e06095f68F4990Ca50161C2C4E4e01ec6;
+        tradeFactory = 0xb634316E06cC0B358437CbadD4dC94F1D3a92B3b;
         proxy = IVoter(voter).strategy();
     }
 
