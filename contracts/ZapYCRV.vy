@@ -18,6 +18,7 @@ interface Curve:
     def exchange(i: int128, j: int128, _dx: uint256, _min_dy: uint256) -> uint256: nonpayable
     def add_liquidity(amounts: uint256[2], min_mint_amount: uint256) -> uint256: nonpayable
     def remove_liquidity_one_coin(_token_amount: uint256, i: int128, min_amount: uint256) -> uint256: nonpayable
+    def remove_liquidity(_burn_amount: uint256, _min_amounts: uint256[2]) -> uint256[2]: nonpayable
     def calc_token_amount(amounts: uint256[2], deposit: bool) -> uint256: view
     def calc_withdraw_one_coin(_burn_amount: uint256, i: int128, _previous: bool = False) -> uint256: view
 
@@ -32,8 +33,10 @@ CRV: constant(address) =        0xD533a949740bb3306d119CC777fa900bA034cd52 # CRV
 YVBOOST: constant(address) =    0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a # YVBOOST
 YCRV: constant(address) =       0xFCc5c47bE19d06BF83eB04298b026F81069ff65b # YCRV
 STYCRV: constant(address) =     0x27B5739e22ad9033bcBf192059122d163b60349D # ST-YCRV
-LPYCRV: constant(address) =     0xc97232527B62eFb0D8ed38CF3EA103A6CcA4037e # LP-YCRV
-POOL: constant(address) =       0x453D92C7d4263201C69aACfaf589Ed14202d83a4 # POOL
+LPYCRV: constant(address) =     0x197D8BaCDe2Bc02989976eB839d9B7eB48E910Ec # LP-YCRV
+LPYCRV_OLD: constant(address) = 0xc97232527B62eFb0D8ed38CF3EA103A6CcA4037e # LP-YCRV Deprecated
+POOL: constant(address) =       0x99f5aCc8EC2Da2BC0771c32814EFF52b712de1E5 # POOL
+POOL_OLD: constant(address) =   0x453D92C7d4263201C69aACfaf589Ed14202d83a4 # POOL
 CVXCRV: constant(address) =     0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7 # CVXCRV
 CVXCRVPOOL: constant(address) = 0x9D0464996170c6B9e75eED71c68B99dDEDf279e8 # CVXCRVPOOL
 
@@ -46,7 +49,7 @@ output_tokens: public(address[3])
 
 @external
 def __init__():
-    self.name = "Zap: YCRV v2"
+    self.name = "Zap: YCRV v3"
     self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
     self.mint_buffer = 15
 
@@ -136,6 +139,16 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = max
         if _input_token == CVXCRV:
             amount = Curve(CVXCRVPOOL).exchange(1, 0, amount, 0)
         amount = self._convert_crv(amount)
+    elif _input_token == LPYCRV_OLD:
+        # If this input token is chosen, we assume it is a migration. 
+        # This allows us to hardcode a single route, no need for many permutations to all possible outputs.
+        assert _output_token == LPYCRV
+        assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
+        amount = Vault(LPYCRV_OLD).withdraw(amount)
+        amounts: uint256[2] = Curve(POOL_OLD).remove_liquidity(amount, [0,0])
+        amount = Curve(POOL).add_liquidity(amounts, 0)
+        return Vault(LPYCRV).deposit(amount, _recipient)
+
     else:
         assert _input_token in self.output_tokens   # dev: invalid input token address
         assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
@@ -205,6 +218,10 @@ def relative_price(_input_token: address, _output_token: address, _amount_in: ui
     elif _input_token == LPYCRV:
         lp_amount: uint256 = Vault(LPYCRV).pricePerShare() * amount / 10 ** 18
         amount = Curve(POOL).get_virtual_price() * lp_amount / 10 ** 18
+    elif _input_token == LPYCRV_OLD:
+        assert _output_token == LPYCRV
+        lp_amount: uint256 = Vault(LPYCRV_OLD).pricePerShare() * amount / 10 ** 18
+        amount = Curve(POOL_OLD).get_virtual_price() * lp_amount / 10 ** 18
 
     if _output_token == YCRV:
         return amount
@@ -259,6 +276,8 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
         buffered_amount: uint256 = amount + (amount * self.mint_buffer / 10_000)
         if output_amount > buffered_amount: # dev: ensure calculation uses buffer
             amount = output_amount
+    elif _input_token == LPYCRV_OLD:
+        assert _output_token == LPYCRV
     else:
         assert _input_token in self.output_tokens   # dev: invalid input token address
     
@@ -273,6 +292,18 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     elif _input_token == LPYCRV:
         lp_amount: uint256 = Vault(LPYCRV).pricePerShare() * amount / 10 ** 18
         amount = Curve(POOL).calc_withdraw_one_coin(lp_amount, 1)
+    elif _input_token == LPYCRV_OLD:
+        # If this input token is chosen, we assume it is a migration. 
+        # This allows us to hardcode a single route, no need for many permutations to all possible outputs.
+        # 1) CALCULATE WITHDRAW FROM OLD VAULT
+        # 2) CALCULATE BALANCED WITHDRAW TO OLD POOL
+        # 3) CALCULATE BALANCED DEPOSIT TO NEW POOL
+        # 4) CALCULATE DEPOSIT TO NEW VAULT
+        lp_amount: uint256 = Vault(LPYCRV_OLD).pricePerShare() * amount / 10 ** 18
+        amounts: uint256[2] = [0,0]
+        amount = Curve(POOL_OLD).calc_token_amount(amounts, False) # Withdraw
+        amount = Curve(POOL).calc_token_amount(amounts, True) # Deposit
+        return amount * 10 ** 18 / Vault(LPYCRV).pricePerShare()
 
     if _output_token == YCRV:
         return amount
