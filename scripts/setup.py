@@ -1,4 +1,4 @@
-from brownie import Contract, accounts
+from brownie import Contract, accounts, web3
 
 def main():
     wavey = accounts.load('wavey')
@@ -12,3 +12,6 @@ def main():
         [crv.balanceOf(wavey),yvecrv.balanceOf(wavey)],
         0
     )
+
+    # Clone vault
+    registry = Contract(web3.ens.resolve('v2.registry.ychad.eth'))
