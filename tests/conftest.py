@@ -97,7 +97,7 @@ def smart_wallet_checker():
 
 @pytest.fixture
 def amount(accounts, token, gov):
-    amount = 10_000 * 10 ** token.decimals()
+    amount = 100 * 10 ** token.decimals()
     # In order to get some funds for the token you are about to use,
     # it impersonate an exchange address to use it's funds.
     reserve = accounts.at("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a", force=True)
@@ -257,7 +257,7 @@ def old_proxy(strategy, gov):
 @pytest.fixture
 def voter(smart_wallet_checker, authorizer):
     v = Contract("0xBA11E7024cbEB1dd2B401C70A83E0d964144686C")
-    smart_wallet_checker.allowlistAddress(v, {"from": authorizer}) # balancer to whitelist our voter
+    # smart_wallet_checker.allowlistAddress(v, {"from": authorizer}) # balancer to whitelist our voter
     yield v
 
 @pytest.fixture

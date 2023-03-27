@@ -1,11 +1,13 @@
 import brownie
 
-def test_sweep(Strategy, live_strat, strategist, ymechs_safe, gov, vault, st_strat, st_ybal, strategy, trade_factory, token, amount, weth, weth_amount):
-    trade_factory.grantRole(trade_factory.STRATEGY(), new_strategy.address, {"from": ymechs_safe, "gas_price": "0 gwei"})
-    new_strategy.setTradeFactory(trade_factory.address, {"from": gov})
-    strategy = new_strategy
-    # Strategy want token doesn't work
-    token.transfer(strategy, amount, {"from": gov})
+def test_sweep(Strategy, live_strat, user, ymechs_safe, gov, st_strategy, st_ybal, trade_factory, token, amount, weth, weth_amount, ybal):
+    trade_factory.grantRole(trade_factory.STRATEGY(), st_strategy.address, {"from": ymechs_safe, "gas_price": "0 gwei"})
+    st_strategy.setTradeFactory(trade_factory.address, {"from": gov})
+    strategy = st_strategy
+    token = ybal
+
+    token.mint(amount, {'from':user})
+    token.transfer(strategy, amount, {"from": user})
     assert token.address == strategy.want()
     assert token.balanceOf(strategy) > 0
     with brownie.reverts("!want"):
@@ -13,7 +15,7 @@ def test_sweep(Strategy, live_strat, strategist, ymechs_safe, gov, vault, st_str
 
     # Vault share token doesn't work
     with brownie.reverts("!shares"):
-        strategy.sweep(vault.address, {"from": gov})
+        strategy.sweep(st_ybal.address, {"from": gov})
 
     before_balance = weth.balanceOf(gov)
     weth.transfer(strategy, weth_amount, {"from": gov})
