@@ -25,7 +25,7 @@ event UpdateSweepRecipient:
     sweep_recipient: indexed(address)
 
 BALWETH: constant(address) =        0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56 # B-80BAL-20WETH LP token
-VOTER: constant(address) =      0xBA11E7024cbEB1dd2B401C70A83E0d964144686C
+VOTER: constant(address) =          0xBA11E7024cbEB1dd2B401C70A83E0d964144686C
 name: public(String[32])
 symbol: public(String[32])
 decimals: public(uint8)
