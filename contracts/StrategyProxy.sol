@@ -52,30 +52,28 @@ contract StrategyProxy {
     IProxy public constant proxy = IProxy(0xBA11E7024cbEB1dd2B401C70A83E0d964144686C);
 
     /// @notice Balancer's token minter.
-    address public constant mintr = 0x239e55F427D44C3cc793f49bFB507ebe76638a2b; // correct
+    address public constant mintr = 0x239e55F427D44C3cc793f49bFB507ebe76638a2b;
 
     /// @notice Balancer's BAL token address.
-    address public constant bal = 0xba100000625a3754423978a60c9317c58a424e3D; // correct
+    address public constant bal = 0xba100000625a3754423978a60c9317c58a424e3D;
 
     /// @notice Curve's BAL/WETH token address.
-    address public constant balweth = 0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56; // correct
-
-    /// @notice Balancer's bb-a-USD address (weekly fees paid in this token).
-    address public constant bbausd = 0xA13a9247ea42D743238089903570127DdA72fE44; // correct
+    address public constant balweth = 0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56;
 
     /// @notice Recipient of weekly bb-a-USD admin fees. Default of st-yBAL strategy address.
     address public feeRecipient = 0x93A62dA5a14C80f265DAbC077fCEE437B1a0Efde; // incorrect - st-yBAL strat yet to be deployed
 
-    // address[] public feeTokens;
-
     /// @notice Balancer's fee distributor contract.
-    FeeDistribution public constant feeDistribution = FeeDistribution(0xD3cf852898b21fc233251427c2DC93d3d604F3BB); // correct
+    FeeDistribution public constant feeDistribution = FeeDistribution(0xD3cf852898b21fc233251427c2DC93d3d604F3BB);
 
     /// @notice Balancer's vote-escrowed BAL address.
-    VeBAL public constant veBAL  = VeBAL(0xC128a9954e6c874eA3d62ce62B468bA073093F25); // correct
+    VeBAL public constant veBAL  = VeBAL(0xC128a9954e6c874eA3d62ce62B468bA073093F25);
 
     /// @notice Balancer's gauge controller.
-    IGaugeController public constant gaugeController = IGaugeController(0xC128468b7Ce63eA702C1f104D55A2566b13D3ABD); // correct
+    IGaugeController public constant gaugeController = IGaugeController(0xC128468b7Ce63eA702C1f104D55A2566b13D3ABD);
+
+    /// @notice The token Balancer pays fees in.
+    address public feeToken = 0xA13a9247ea42D743238089903570127DdA72fE44;
 
     /// @notice Look up the strategy approved for a given Balancer gauge.
     mapping(address => address) public strategies;
@@ -93,7 +91,7 @@ contract StrategyProxy {
     mapping(address => bool) public lockers;
 
     /// @notice Current governance address.
-    address public governance;
+    address public governance = 0x36666EC6315E9606f03fc6527E396B95bcA4D384;
 
     /// @notice Curve vault factory address. 
     address public factory;
@@ -117,10 +115,7 @@ contract StrategyProxy {
     event RewardTokenApproved(address indexed token, bool approved);
     event FactorySet(address indexed factory);
     event TokenClaimed(address indexed token, address indexed recipient, uint balance);
-
-    constructor() public {
-        governance = msg.sender;
-    }
+    event FeeTokenSet(address indexed feeToken);
 
     /// @notice Set Balancer vault factory address.
     /// @dev Must be called by governance.
@@ -371,27 +366,26 @@ contract StrategyProxy {
         if (!claimable()) return;
 
         feeDistribution.claimToken(address(proxy), IERC20(bal));
-        feeDistribution.claimToken(address(proxy), IERC20(bbausd));
+        feeDistribution.claimToken(address(proxy), IERC20(feeToken));
         
         lastTimeCursor = feeDistribution.getUserTimeCursor(address(proxy));
-        uint256 amount;
 
-        amount = IERC20(bal).balanceOf(address(proxy));
+        uint amount = IERC20(bal).balanceOf(address(proxy));
         if (amount > 0) {
             proxy.safeExecute(bal, 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
             emit BalFeesClaimed(_recipient, amount);
         }
 
-        amount = IERC20(bbausd).balanceOf(address(proxy));
+        amount = IERC20(feeToken).balanceOf(address(proxy));
         if (amount > 0) {
-            proxy.safeExecute(bbausd, 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
+            proxy.safeExecute(feeToken, 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
             emit AdminFeesClaimed(_recipient, amount);
         }
     }
 
-    /// @notice Check if it has been one week since last admin fee claim.
+    /// @notice Check if we are in a new rewards period
     function claimable() public view returns (bool) {
-        /// @dev add 1 day buffer.
+        /// @dev add 1 day to allow the give the burner mechanism a buffer
         if (block.timestamp < lastTimeCursor + 1 days) return false;
         return true;
     }
@@ -440,6 +434,15 @@ contract StrategyProxy {
         require(rewardTokenApproved[_token]);
         rewardTokenApproved[_token] = false;
         emit RewardTokenApproved(_token, false);
+    }
+
+    /// @notice Set a new fee token in the event Balancer governance makes a change.
+    /// @param _token New fee token.
+    function setFeeToken(address _token) external {
+        require(msg.sender == governance, "!governance");
+        require(feeToken != _token);
+        feeToken = _token;
+        emit FeeTokenSet(_token);
     }
 
     // make sure a strategy can't yoink gauge or LP tokens.

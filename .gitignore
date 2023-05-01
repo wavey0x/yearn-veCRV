@@ -6,3 +6,5 @@ build/
 reports/
 scripts/deploy.py
 env
+on_hold/
+./on_hold
