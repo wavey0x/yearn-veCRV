@@ -60,8 +60,8 @@ contract StrategyProxy {
     /// @notice Curve's BAL/WETH token address.
     address public constant balweth = 0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56;
 
-    /// @notice Recipient of weekly bb-a-USD admin fees. Default of st-yBAL strategy address.
-    address public feeRecipient = 0x93A62dA5a14C80f265DAbC077fCEE437B1a0Efde; // incorrect - st-yBAL strat yet to be deployed
+    /// @notice Recipient of weekly admin fees.
+    address public feeRecipient = 0x36666EC6315E9606f03fc6527E396B95bcA4D384;
 
     /// @notice Balancer's fee distributor contract.
     FeeDistribution public constant feeDistribution = FeeDistribution(0xD3cf852898b21fc233251427c2DC93d3d604F3BB);
@@ -114,7 +114,7 @@ contract StrategyProxy {
     event ExtraTokenRecipientRevoked(address indexed token, address indexed recipient);
     event RewardTokenApproved(address indexed token, bool approved);
     event FactorySet(address indexed factory);
-    event TokenClaimed(address indexed token, address indexed recipient, uint balance);
+    event TokenClaimed(address indexed token, address indexed recipient, uint256 balance);
     event FeeTokenSet(address indexed feeToken);
 
     /// @notice Set Balancer vault factory address.
@@ -263,8 +263,8 @@ contract StrategyProxy {
     /// @dev Must be called by governance or locker.
     function maxLock() external {
         require(msg.sender == governance || lockers[msg.sender], "!locker");
-        uint max = block.timestamp + (365 days);
-        uint lock_end = veBAL.locked__end(address(proxy));
+        uint256 max = block.timestamp + (365 days);
+        uint256 lock_end = veBAL.locked__end(address(proxy));
         if(lock_end < (max / WEEK) * WEEK){
             proxy.safeExecute(
                 address(veBAL), 
@@ -370,7 +370,7 @@ contract StrategyProxy {
         
         lastTimeCursor = feeDistribution.getUserTimeCursor(address(proxy));
 
-        uint amount = IERC20(bal).balanceOf(address(proxy));
+        uint256 amount = IERC20(bal).balanceOf(address(proxy));
         if (amount > 0) {
             proxy.safeExecute(bal, 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
             emit BalFeesClaimed(_recipient, amount);
