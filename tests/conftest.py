@@ -1,22 +1,28 @@
 import pytest, requests
-from brownie import ZERO_ADDRESS, accounts, config, ZapYBAL_test, Contract, interface, Strategy, StrategyProxy, BalancerYBALVoter, yBAL, web3, chain
+from brownie import ZERO_ADDRESS, accounts, config, Zap, Contract, interface, Strategy, StrategyProxy, BalancerYBALVoter, yBAL, web3, chain
+
+USE_TENDERLY = False
 
 # This causes test not to re-run fixtures on each run
 @pytest.fixture(autouse=True)
 def isolation(fn_isolation):
     pass
 
-# @pytest.fixture(scope="module", autouse=True)
-# def tenderly_fork(web3, chain):
-#     fork_base_url = "https://simulate.yearn.network/fork"
-#     payload = {"network_id": str(chain.id)}
-#     resp = requests.post(fork_base_url, headers={}, json=payload)
-#     fork_id = resp.json()["simulation_fork"]["id"]
-#     fork_rpc_url = f"https://rpc.tenderly.co/fork/{fork_id}"
-#     print(fork_rpc_url)
-#     tenderly_provider = web3.HTTPProvider(fork_rpc_url, {"timeout": 600})
-#     web3.provider = tenderly_provider
-#     print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
+@pytest.fixture(scope="module", autouse=USE_TENDERLY)
+def tenderly_fork(web3, chain):
+    fork_base_url = "https://simulate.yearn.network/fork"
+    payload = {"network_id": str(chain.id)}
+    resp = requests.post(fork_base_url, headers={}, json=payload)
+    fork_id = resp.json()["simulation_fork"]["id"]
+    fork_rpc_url = f"https://rpc.tenderly.co/fork/{fork_id}"
+    print(fork_rpc_url)
+    tenderly_provider = web3.HTTPProvider(fork_rpc_url, {"timeout": 600})
+    web3.provider = tenderly_provider
+    print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
+
+@pytest.fixture(scope="session")
+def using_tenderly():
+    yield USE_TENDERLY
 
 @pytest.fixture
 def gov(accounts, weth):
@@ -24,21 +30,61 @@ def gov(accounts, weth):
     #yield accounts.at("0x6AFB7c9a6E8F34a3E0eC6b734942a5589A84F44C", force=True)
 
 @pytest.fixture
-def zap_test():
-    zap = accounts[0].deploy(ZapYBAL_test)
+def zap():
+    zap = accounts[0].deploy(Zap)
     yield zap
 
 @pytest.fixture
-def user(accounts, balweth, whale_balweth, zap_test, bal, weth):
+def usdt():
+    whale = accounts.at('0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503', force=True)
+    token = Contract('0xdAC17F958D2ee523a2206206994597C13D831ec7')
+    token.transfer(accounts[0], 100e6, {'from':whale})
+    yield token
+
+@pytest.fixture
+def input_tokens(zap):
+    input_tokens = []
+    for i in range(0,20):
+        try:
+            t = zap.INPUT_TOKENS(i)
+            input_tokens.append(t)
+        except:
+            break
+    
+    for i in range(0,20):
+        try:
+            t = zap.OUTPUT_TOKENS(i)
+            input_tokens.append(t)
+        except:
+            break
+    yield input_tokens
+
+@pytest.fixture
+def output_tokens(zap):
+    output_tokens = []
+    for i in range(0,20):
+        try:
+            t = zap.OUTPUT_TOKENS(i)
+            output_tokens.append(t)
+        except:
+            break
+    
+    yield output_tokens
+
+@pytest.fixture
+def user(accounts, balweth, whale_balweth, zap, bal, weth):
     user = accounts[0]
     bal_whale = accounts.at('0xBA12222222228d8Ba445958a75a0704d566BF2C8', force=True)
     weth_whale = accounts.at('0xF04a5cC80B1E94C69B48f5ee68a08CD2F09A7c3E',force=True)
-    balweth.transfer(user, 500e18,{'from':whale_balweth})
+
+    balweth.transfer(user, 500_000e18,{'from':whale_balweth})
+
+
     bal.transfer(user, 500e18,{'from':bal_whale})
-    weth.transfer(user, 50e18,{'from':weth_whale})
-    weth.approve(zap_test, 2**256-1, {'from': user})
-    balweth.approve(zap_test, 2**256-1, {'from': user})
-    bal.approve(zap_test, 2**256-1, {'from': user})
+    weth.transfer(user, 5000e18,{'from':weth_whale})
+    weth.approve(zap, 2**256-1, {'from': user})
+    balweth.approve(zap, 2**256-1, {'from': user})
+    bal.approve(zap, 2**256-1, {'from': user})
     yield user
 
 @pytest.fixture
@@ -76,6 +122,10 @@ def token():
     yield Contract(token_address)
 
 @pytest.fixture
+def pool():
+    yield Contract('0xD61e198e139369a40818FE05F5d5e6e045Cd6eaF')
+
+@pytest.fixture
 def vebal():
     vebal = "0xC128a9954e6c874eA3d62ce62B468bA073093F25"  # veBAL addr
     yield Contract(vebal)
@@ -86,6 +136,8 @@ def name():
 
 @pytest.fixture
 def bal():
+    # w = accounts.at('0x10A19e7eE7d7F8a52822f6817de8ea18204F2e4f', force=True)
+    # bal.transfer(a, 10_000e18, {'from':w})
     yield Contract("0xba100000625a3754423978a60c9317c58a424e3D")
 
 @pytest.fixture
@@ -128,6 +180,9 @@ def vault(pm, gov, rewards, guardian, management, token):
 def eth_whale(accounts):
     yield accounts.at("0x53d284357ec70cE289D6D64134DfAc8E511c8a3D", force=True)
 
+@pytest.fixture
+def balancer_vault(accounts):
+    yield Contract('0xBA12222222228d8Ba445958a75a0704d566BF2C8')
 
 @pytest.fixture
 def trade_factory():
@@ -150,24 +205,29 @@ def live_strat():
 
 @pytest.fixture
 def ybal(strategist):
-    yield strategist.deploy(yBAL)
+    yield Contract('0x98E86Ed5b0E48734430BfBe92101156C75418cad')
 
 @pytest.fixture
 def vault_abi():
     return Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a").abi #yvBOOST
 
 @pytest.fixture
-def st_ybal(strategist, ybal, gov, vault_abi, user, balweth):
-    registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
-    address = registry.newVault(ybal,gov,gov,"Staked YBAL","st-YBAL",0,{'from':gov}).return_value
-    v = Contract.from_abi("pool", address, vault_abi)
-    v.setDepositLimit(100e25, {'from':gov})
-    balweth.approve(ybal, 2**256-1, {'from':user})
-    ybal.mint(101e18, {'from':user})
-    ybal.approve(v, 2**256-1, {'from':user})
-    v.deposit(100e18,{'from':user})
-    ybal.transfer(v, 1e18,{'from':user}) # Increase pps a bit
-    yield v
+def lp_ybal():
+    yield Contract('0xD725F5742047B4B4A3110D0b38284227fcaB041e')
+
+@pytest.fixture
+def st_ybal():
+    yield Contract('0xc09cfb625e586B117282399433257a1C0841edf3')
+    # registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
+    # address = registry.newVault(ybal,gov,gov,"Staked YBAL","st-YBAL",0,{'from':gov}).return_value
+    # v = Contract.from_abi("pool", address, vault_abi)
+    # v.setDepositLimit(100e25, {'from':gov})
+    # balweth.approve(ybal, 2**256-1, {'from':user})
+    # ybal.mint(101e18, {'from':user})
+    # ybal.approve(v, 2**256-1, {'from':user})
+    # v.deposit(100e18,{'from':user})
+    # ybal.transfer(v, 1e18,{'from':user}) # Increase pps a bit
+    # yield v
 
 
 @pytest.fixture

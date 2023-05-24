@@ -1,0 +1,324 @@
+# @version 0.3.7
+
+from vyper.interfaces import ERC20
+from vyper.interfaces import ERC20Detailed
+
+struct BatchSwapStep:
+    poolId: bytes32
+    assetInIndex: uint256
+    assetOutIndex: uint256
+    amount: uint256
+    userData: Bytes[32]
+
+struct SingleSwap:
+    poolId: bytes32
+    kind: uint8
+    assetIn: address
+    assetOut: address
+    amount: uint256
+    userData: Bytes[32]
+    
+struct FundManagement:
+    sender: address
+    fromInternalBalance: bool
+    recipient: address
+    toInternalBalance: bool
+
+struct JoinPoolRequest:
+    assets: DynArray[address, 3]
+    maxAmountsIn: DynArray[uint256, 3]
+    userData: Bytes[224]
+    fromInternalBalance: bool
+
+struct ExitPoolRequest:
+    assets: DynArray[address, 3]
+    minAmountsOut: DynArray[uint256, 3]
+    userData: Bytes[224]
+    fromInternalBalance: bool
+
+interface IVault:
+    def deposit(amount: uint256, recipient: address = msg.sender) -> uint256: nonpayable
+    def withdraw(shares: uint256) -> uint256: nonpayable
+
+interface IYBAL:
+    def mint(amount: uint256, recipient: address = msg.sender) -> uint256: nonpayable
+    
+interface IBalancerVault:
+    def queryBatchSwap(
+        kind: uint8, 
+        swaps: DynArray[BatchSwapStep, 1], 
+        assets: DynArray[address, 2],
+        funds: FundManagement
+    ) -> DynArray[int256, 2]: view
+    def batchSwap(
+        kind: uint8,
+        swaps: DynArray[BatchSwapStep, 1],
+        assets: DynArray[address, 2],
+        funds: FundManagement,
+        limits: DynArray[int256, 2],
+        deadline: uint256
+    ) -> DynArray[int256, 2]: nonpayable
+
+    def joinPool(poolId: bytes32, sender: address, recipient: address, request: JoinPoolRequest): nonpayable
+    def exitPool(poolId: bytes32, sender: address, recipient: address, request: ExitPoolRequest): nonpayable
+    def swap(swap_step: SingleSwap, funds: FundManagement, limit: uint256, deadline: uint256) -> uint256: nonpayable
+
+event UpdateMintBuffer:
+    mint_buffer: uint256
+
+INPUT_TOKENS: public(immutable(address[3]))
+OUTPUT_TOKENS: public(immutable(address[3]))
+
+name: public(String[32])
+sweep_recipient: public(address)
+mint_buffer: public(uint256) # For use by front-end
+
+BALVAULT: constant(address) =   0xBA12222222228d8Ba445958a75a0704d566BF2C8 # BALANCER VAULT
+BAL: constant(address) =        0xba100000625a3754423978a60c9317c58a424e3D # BAL
+BALWETH: constant(address) =    0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56 # BALWETH
+WETH: constant(address) =       0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 # WETH
+YBAL: constant(address) =       0x98E86Ed5b0E48734430BfBe92101156C75418cad # YBAL
+STYBAL: constant(address) =     0xc09cfb625e586B117282399433257a1C0841edf3 # ST-YBAL
+LPYBAL: constant(address) =     0xD725F5742047B4B4A3110D0b38284227fcaB041e # LP-YBAL
+POOL_ADDRESS_BALWETH: constant(address) =   0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56 # BALWETH
+POOL_ADDRESS_YBAL: constant(address) =      0xD61e198e139369a40818FE05F5d5e6e045Cd6eaF # YBAL
+POOL_ID_BALWETH: constant(bytes32) =        0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014
+POOL_ID_YBAL: constant(bytes32) =           0xd61e198e139369a40818fe05f5d5e6e045cd6eaf000000000000000000000540
+
+@external
+def __init__():
+    self.name = "Zap: YBAL v1"
+    self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
+    self.mint_buffer = 15
+
+    assert ERC20(BAL).approve(BALVAULT, max_value(uint256))
+    assert ERC20(WETH).approve(BALVAULT, max_value(uint256))
+    assert ERC20(YBAL).approve(BALVAULT, max_value(uint256))
+    assert ERC20(BALWETH).approve(BALVAULT, max_value(uint256))
+    assert ERC20(BALWETH).approve(YBAL, max_value(uint256))
+    assert ERC20(YBAL).approve(STYBAL, max_value(uint256))
+    assert ERC20(POOL_ADDRESS_YBAL).approve(LPYBAL, max_value(uint256))
+    
+    INPUT_TOKENS = [BAL, WETH, BALWETH]
+    OUTPUT_TOKENS = [YBAL, STYBAL, LPYBAL]
+    
+@external
+def zap(
+    _input_token: address,
+    _output_token: address,
+    _amount_in: uint256,
+    _min_out: uint256,
+    _recipient: address = msg.sender,
+    _mint: bool = True
+) -> uint256:
+    """
+    @notice 
+        This function allows users to zap from BAL, WETH, BAL-WETH BPT, or any yBAL token to any other
+        token within the yBAL ecosystem.
+    @dev 
+        When zapping between tokens that might incur slippage, it is recommended to supply a _min_out value > 0.
+    @param _input_token Address of any supported input token: BAL, WETH, BAL-WETH BPT, or any yBAL ecosystem token
+    @param _output_token Address of any suppoprt output token: yBAL, st-yBAL, lp-yBAL
+    @param _amount_in Amount of input token to migrate
+    @param _min_out The minimum amount of output token to receive
+    @param _recipient The address where the output token should be sent, default is msg.sender
+    @param _mint Determines whether zap will mint or swap into YBAL. Optimal value should be computed off-chain
+    @return Amount of output token transferred to the _recipient
+    """
+    assert _amount_in > 0   # dev: amount is zero
+    assert _input_token in INPUT_TOKENS or _input_token in OUTPUT_TOKENS # dev: invalid input token
+    assert _output_token in OUTPUT_TOKENS   # dev: invalid output token
+    assert _input_token != _output_token    # dev: input and output are the same
+    assert ERC20(_input_token).transferFrom(msg.sender, self, _amount_in)
+
+    amount: uint256 = 0
+
+    # STEP 1: Get to 80-20 if not already there
+    if _input_token in [WETH, BAL]:
+        _amounts: DynArray[uint256, 2] = [0, 0]
+        if _input_token == BAL:
+            _amounts[0] = _amount_in
+        else:
+            _amounts[1] = _amount_in
+        amount = self._lp_balweth(_amounts)
+        # Now we have BALWETH token
+
+    # STEP 2: If we are at BALWETH, Get to YBAL
+    if amount > 0 or _input_token == BALWETH:
+        if amount == 0:
+            amount = _amount_in
+        if _mint:
+            IYBAL(YBAL).mint(amount) # Mint is 1:1, so we can assume 'amount' is unchanged
+        else:
+            # Here we can hardcode some (not total) MEV protection. This works because we know
+            # that minting 1:1 is always available. Therefore YBAL price should never 
+            # normally rise above BALWETH price.
+            _swap_min: uint256 = amount - (amount * self.mint_buffer / 10_000)
+            amount = self._swap_into(amount, _swap_min)
+    
+    # We've checked all input tokens, so can assume the _input_token is one of the OUTPUT_TOKEN
+    if amount == 0:
+        if _input_token == YBAL:
+            amount = _amount_in
+        elif _input_token == STYBAL:
+            amount = IVault(STYBAL).withdraw(_amount_in)
+            assert amount >= _amount_in # dev: fail on partial withdrawal
+        else:
+            assert _input_token == LPYBAL # dev: unable to match input token
+            amount = IVault(LPYBAL).withdraw(_amount_in)
+            assert amount >= _amount_in # dev: fail on partial withdrawal
+            amount = self._exit_lp(amount)
+
+    # Acquire output token
+    if _output_token == YBAL:
+        assert ERC20(YBAL).transfer(_recipient, amount)
+    elif _output_token == STYBAL:
+        amount = IVault(STYBAL).deposit(amount, _recipient)
+    else: # must be LPYBAL
+        amount = self._lp_balybal([0, amount])
+        amount = IVault(LPYBAL).deposit(amount, _recipient)
+    
+    assert amount >= _min_out # dev: received too few
+    return amount
+
+@internal
+def _swap_into(_amount: uint256, _swap_min: uint256) -> uint256:
+    """
+    @notice Uses the BALWETH/YBAL pool to swap from BALWETH to YBAL
+    @param _amount The amount of BALWETH to swap to YBAL
+    @param _swap_min: The minimum amount of YBAL tokens to receive from swap
+    @return Quantity of tokens received from swap
+    """
+    kind: uint8 = 0 # GIVEN_IN
+    swap: SingleSwap = SingleSwap({
+        poolId: POOL_ID_YBAL, 
+        kind: 0, 
+        assetIn: BALWETH, 
+        assetOut: YBAL, 
+        amount: _amount,
+        userData: b'',
+    })
+
+    fund: FundManagement = FundManagement({
+        sender: self,
+        fromInternalBalance: False, 
+        recipient: self,
+        toInternalBalance: False
+    })
+
+    return IBalancerVault(BALVAULT).swap(
+        swap,
+        fund,
+        _swap_min,
+        block.timestamp,
+    )
+
+@internal
+def _lp_balweth(_amounts: DynArray[uint256,2]) -> uint256:
+    """
+    @notice LPs into to BALWETH Balancer pool
+    @param _amounts The amounts of BAL and WETH (respectively) to LP with
+    @return Quantity of BPTs received from LP
+    """
+    # We do manual balance checks before/after because Balancer joins don't return BPT amounts
+    before_balance: uint256 = ERC20(BALWETH).balanceOf(self)
+    assets: DynArray[address, 2] = [
+        BAL,
+        WETH,
+    ]
+    user_data: Bytes[160] = _abi_encode(
+        convert(1, uint8), # EXACT_TOKENS_IN_FOR_BPT_OUT
+        _amounts,
+    )
+
+    request: JoinPoolRequest = JoinPoolRequest({
+        assets: assets,
+        maxAmountsIn: _amounts,
+        userData: user_data,
+        fromInternalBalance: False
+    })
+    
+    IBalancerVault(BALVAULT).joinPool(POOL_ID_BALWETH,self,self,request)
+    return ERC20(BALWETH).balanceOf(self) - before_balance
+
+@internal
+def _lp_balybal(_amounts: DynArray[uint256,2]) -> uint256:
+    """
+    @notice LPs into to BALWETH/YBAL Balancer pool
+    @param _amounts The amounts of BALWETH and YBAL (respectively) to LP with
+    @return Quantity of BPTs received from LP
+    """
+    # We do manual balance checks before/after because Balancer joins don't return BPT amounts
+    before_balance: uint256 = ERC20(POOL_ADDRESS_YBAL).balanceOf(self)
+    assets: DynArray[address, 3] = [
+        BALWETH,
+        YBAL,
+        POOL_ADDRESS_YBAL,
+    ]
+
+    user_data: Bytes[224] = _abi_encode(
+        convert(1, uint8),  # JoinKind: EXACT_TOKENS_IN_FOR_BPT_OUT
+        _amounts,           # Token amounts in
+        convert(0, uint256) # Min BPT out
+    )
+
+    amounts: DynArray[uint256,3] = [0, _amounts[1], 0]
+    request: JoinPoolRequest = JoinPoolRequest({
+        assets: assets,
+        maxAmountsIn: amounts,
+        userData: user_data,
+        fromInternalBalance: False
+    })
+    
+    IBalancerVault(BALVAULT).joinPool(POOL_ID_YBAL, self, self, request)
+    return ERC20(POOL_ADDRESS_YBAL).balanceOf(self) - before_balance
+
+@internal
+def _exit_lp(_amount: uint256) -> uint256:
+    """
+    @notice Removes YBAL from BALWETH/YBAL pool and burns associated BPTs
+    @param _amounts The amounts of BALWETH and YBAL (respectively) to LP with
+    @return Quantity of YBAL tokens removed from the pool
+    """
+    before_balance: uint256 = ERC20(YBAL).balanceOf(self)
+    assets: DynArray[address, 3] = [
+        BALWETH,
+        YBAL,
+        POOL_ADDRESS_YBAL,
+    ]
+    user_data: Bytes[224] = _abi_encode(
+        convert(0, uint8),  # ExitKind = EXACT_BPT_IN_FOR_ONE_TOKEN_OUT
+        _amount,            # BPT amount in
+        convert(1, uint256) # Exit token index   
+    )
+    min_amounts_out: DynArray[uint256, 3] = [0,0,0]
+    request: ExitPoolRequest = ExitPoolRequest({
+        assets: assets,
+        minAmountsOut: min_amounts_out,
+        userData: user_data,
+        fromInternalBalance: False
+    })
+    
+    IBalancerVault(BALVAULT).exitPool(POOL_ID_YBAL, self, self, request)
+    return ERC20(YBAL).balanceOf(self) - before_balance
+
+@external
+def sweep(_token: address, _amount: uint256 = max_value(uint256)):
+    assert msg.sender == self.sweep_recipient
+    value: uint256 = _amount
+    if value == max_value(uint256):
+        value = ERC20(_token).balanceOf(self)
+    assert ERC20(_token).transfer(self.sweep_recipient, value, default_return_value=True)
+
+@external
+def set_mint_buffer(_new_buffer: uint256):
+    """
+    @notice 
+        Allow sweep_recipient to express a preference towards minting over swapping 
+        to save gas and improve overall locked position
+    @param _new_buffer New percentage (expressed in BPS) to nudge zaps towards minting
+    """
+    assert msg.sender == self.sweep_recipient
+    assert _new_buffer < 500 # dev: buffer too high
+    self.mint_buffer = _new_buffer
+    log UpdateMintBuffer(_new_buffer)
