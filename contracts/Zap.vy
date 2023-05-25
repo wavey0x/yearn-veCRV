@@ -39,29 +39,20 @@ struct ExitPoolRequest:
 interface IVault:
     def deposit(amount: uint256, recipient: address = msg.sender) -> uint256: nonpayable
     def withdraw(shares: uint256) -> uint256: nonpayable
+    def pricePerShare() -> uint256: view
 
 interface IYBAL:
     def mint(amount: uint256, recipient: address = msg.sender) -> uint256: nonpayable
     
 interface IBalancerVault:
-    def queryBatchSwap(
-        kind: uint8, 
-        swaps: DynArray[BatchSwapStep, 1], 
-        assets: DynArray[address, 2],
-        funds: FundManagement
-    ) -> DynArray[int256, 2]: view
-    def batchSwap(
-        kind: uint8,
-        swaps: DynArray[BatchSwapStep, 1],
-        assets: DynArray[address, 2],
-        funds: FundManagement,
-        limits: DynArray[int256, 2],
-        deadline: uint256
-    ) -> DynArray[int256, 2]: nonpayable
-
     def joinPool(poolId: bytes32, sender: address, recipient: address, request: JoinPoolRequest): nonpayable
     def exitPool(poolId: bytes32, sender: address, recipient: address, request: ExitPoolRequest): nonpayable
     def swap(swap_step: SingleSwap, funds: FundManagement, limit: uint256, deadline: uint256) -> uint256: nonpayable
+
+interface IQueryHelper:
+    def queryJoin(poolId: bytes32, sender: address, recipient: address, request: JoinPoolRequest) -> (uint256, DynArray[uint256, 3]): nonpayable
+    def queryExit(poolId: bytes32, sender: address, recipient: address, request: ExitPoolRequest) -> (uint256, DynArray[uint256, 3]): nonpayable
+    def querySwap(swap_step: SingleSwap, funds: FundManagement) -> uint256: nonpayable
 
 event UpdateMintBuffer:
     mint_buffer: uint256
@@ -80,10 +71,10 @@ WETH: constant(address) =       0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 # WET
 YBAL: constant(address) =       0x98E86Ed5b0E48734430BfBe92101156C75418cad # YBAL
 STYBAL: constant(address) =     0xc09cfb625e586B117282399433257a1C0841edf3 # ST-YBAL
 LPYBAL: constant(address) =     0xD725F5742047B4B4A3110D0b38284227fcaB041e # LP-YBAL
-POOL_ADDRESS_BALWETH: constant(address) =   0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56 # BALWETH
 POOL_ADDRESS_YBAL: constant(address) =      0xD61e198e139369a40818FE05F5d5e6e045Cd6eaF # YBAL
 POOL_ID_BALWETH: constant(bytes32) =        0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014
 POOL_ID_YBAL: constant(bytes32) =           0xd61e198e139369a40818fe05f5d5e6e045cd6eaf000000000000000000000540
+QUERY_HELPER: constant(address) =           0xE39B5e3B6D74016b2F6A9673D7d7493B6DF549d5
 
 @external
 def __init__():
@@ -120,9 +111,9 @@ def zap(
     @param _input_token Address of any supported input token: BAL, WETH, BAL-WETH BPT, or any yBAL ecosystem token
     @param _output_token Address of any suppoprt output token: yBAL, st-yBAL, lp-yBAL
     @param _amount_in Amount of input token to migrate
-    @param _min_out The minimum amount of output token to receive
+    @param _min_out The minimum amount of output token to receive - optimal value should be computed off-chain
     @param _recipient The address where the output token should be sent, default is msg.sender
-    @param _mint Determines whether zap will mint or swap into YBAL. Optimal value should be computed off-chain
+    @param _mint Determines whether zap will mint or swap into YBAL - optimal value should be computed off-chain
     @return Amount of output token transferred to the _recipient
     """
     assert _amount_in > 0   # dev: amount is zero
@@ -140,7 +131,7 @@ def zap(
             _amounts[0] = _amount_in
         else:
             _amounts[1] = _amount_in
-        amount = self._lp_balweth(_amounts)
+        amount = self._lp_balweth(_amounts, False)
         # Now we have BALWETH token
 
     # STEP 2: If we are at BALWETH, Get to YBAL
@@ -154,7 +145,7 @@ def zap(
             # that minting 1:1 is always available. Therefore YBAL price should never 
             # normally rise above BALWETH price.
             _swap_min: uint256 = amount - (amount * self.mint_buffer / 10_000)
-            amount = self._swap_into(amount, _swap_min)
+            amount = self._swap_into(amount, _swap_min, False)
     
     # We've checked all input tokens, so can assume the _input_token is one of the OUTPUT_TOKEN
     if amount == 0:
@@ -167,7 +158,7 @@ def zap(
             assert _input_token == LPYBAL # dev: unable to match input token
             amount = IVault(LPYBAL).withdraw(_amount_in)
             assert amount >= _amount_in # dev: fail on partial withdrawal
-            amount = self._exit_lp(amount)
+            amount = self._exit_lp(amount, False)
 
     # Acquire output token
     if _output_token == YBAL:
@@ -175,21 +166,84 @@ def zap(
     elif _output_token == STYBAL:
         amount = IVault(STYBAL).deposit(amount, _recipient)
     else: # must be LPYBAL
-        amount = self._lp_balybal([0, amount])
+        amount = self._lp_balybal([0, amount], False)
         amount = IVault(LPYBAL).deposit(amount, _recipient)
     
     assert amount >= _min_out # dev: received too few
     return amount
 
+@external
+def queryZapOutput(
+    _input_token: address,
+    _output_token: address,
+    _amount_in: uint256,
+    _mint: bool = True
+) -> uint256:
+    """
+    @notice This function performs a read-only estimate of a desired zap output amount.
+    @dev 
+        This function should never be used within an actual transaction to set min_out for a zap. 
+        It is designed for usage by front-end calls only.
+    @param _input_token Address of any supported input token: BAL, WETH, BAL-WETH BPT, or any yBAL ecosystem token
+    @param _output_token Address of any suppoprt output token: yBAL, st-yBAL, lp-yBAL
+    @param _amount_in Amount of input token to migrate
+    @param _mint Determines whether zap will mint or swap into YBAL - optimal value should be computed off-chain
+    @return Amount of output token transferred to the _recipient
+    """
+
+    if _amount_in == 0:
+        return 0
+    if _input_token not in INPUT_TOKENS and _input_token not in OUTPUT_TOKENS:
+        return 0
+    if _output_token not in OUTPUT_TOKENS:
+        return 0
+    if _input_token == _output_token:
+        return 0
+
+    amount: uint256 = 0
+
+    if _input_token in [WETH, BAL]:
+        _amounts: DynArray[uint256, 2] = [0, 0]
+        if _input_token == BAL:
+            _amounts[0] = _amount_in
+        else:
+            _amounts[1] = _amount_in
+        amount = self._lp_balweth(_amounts, True)
+
+    if amount > 0 or _input_token == BALWETH:
+        if amount == 0:
+            amount = _amount_in
+        if not _mint:
+            amount = self._swap_into(amount, 0, True)
+    
+    # We've checked all input tokens, so can assume the _input_token is one of the OUTPUT_TOKEN
+    if amount == 0:
+        if _input_token == YBAL:
+            amount = _amount_in
+        elif _input_token == STYBAL:
+            amount = _amount_in * IVault(STYBAL).pricePerShare() / 10 ** 18
+        else:
+            assert _input_token == LPYBAL # dev: unable to match input token
+            amount = _amount_in * IVault(LPYBAL).pricePerShare() / 10 ** 18
+            amount = self._exit_lp(amount, True)
+
+    # Calculate output token if not YBAL (implied)
+    if _output_token == STYBAL:
+        amount = amount * 10 ** 18 / IVault(STYBAL).pricePerShare()
+    elif _output_token == LPYBAL: # must be LPYBAL
+        amount = self._lp_balybal([0, amount], True)
+        amount = amount * 10 ** 18 / IVault(LPYBAL).pricePerShare()
+
+    return amount
+
 @internal
-def _swap_into(_amount: uint256, _swap_min: uint256) -> uint256:
+def _swap_into(_amount: uint256, _swap_min: uint256, _query: bool) -> uint256:
     """
     @notice Uses the BALWETH/YBAL pool to swap from BALWETH to YBAL
     @param _amount The amount of BALWETH to swap to YBAL
     @param _swap_min: The minimum amount of YBAL tokens to receive from swap
     @return Quantity of tokens received from swap
     """
-    kind: uint8 = 0 # GIVEN_IN
     swap: SingleSwap = SingleSwap({
         poolId: POOL_ID_YBAL, 
         kind: 0, 
@@ -206,6 +260,9 @@ def _swap_into(_amount: uint256, _swap_min: uint256) -> uint256:
         toInternalBalance: False
     })
 
+    if _query:
+        return IQueryHelper(QUERY_HELPER).querySwap(swap, fund)
+
     return IBalancerVault(BALVAULT).swap(
         swap,
         fund,
@@ -214,7 +271,7 @@ def _swap_into(_amount: uint256, _swap_min: uint256) -> uint256:
     )
 
 @internal
-def _lp_balweth(_amounts: DynArray[uint256,2]) -> uint256:
+def _lp_balweth(_amounts: DynArray[uint256,2], _query: bool) -> uint256:
     """
     @notice LPs into to BALWETH Balancer pool
     @param _amounts The amounts of BAL and WETH (respectively) to LP with
@@ -238,11 +295,17 @@ def _lp_balweth(_amounts: DynArray[uint256,2]) -> uint256:
         fromInternalBalance: False
     })
     
-    IBalancerVault(BALVAULT).joinPool(POOL_ID_BALWETH,self,self,request)
+    if _query:
+        bpt_out: uint256 = 0
+        amounts_in: DynArray[uint256, 3] = empty(DynArray[uint256, 3])
+        bpt_out, amounts_in = IQueryHelper(QUERY_HELPER).queryJoin(POOL_ID_BALWETH, self, self, request)
+        return bpt_out
+
+    IBalancerVault(BALVAULT).joinPool(POOL_ID_BALWETH, self, self,request)
     return ERC20(BALWETH).balanceOf(self) - before_balance
 
 @internal
-def _lp_balybal(_amounts: DynArray[uint256,2]) -> uint256:
+def _lp_balybal(_amounts: DynArray[uint256,2], _query: bool) -> uint256:
     """
     @notice LPs into to BALWETH/YBAL Balancer pool
     @param _amounts The amounts of BALWETH and YBAL (respectively) to LP with
@@ -270,11 +333,17 @@ def _lp_balybal(_amounts: DynArray[uint256,2]) -> uint256:
         fromInternalBalance: False
     })
     
+    if _query:
+        bpt_out: uint256 = 0
+        amounts_in: DynArray[uint256, 3] = empty(DynArray[uint256, 3])
+        bpt_out, amounts_in = IQueryHelper(QUERY_HELPER).queryJoin(POOL_ID_YBAL, self, self, request)
+        return bpt_out
+    
     IBalancerVault(BALVAULT).joinPool(POOL_ID_YBAL, self, self, request)
     return ERC20(POOL_ADDRESS_YBAL).balanceOf(self) - before_balance
 
 @internal
-def _exit_lp(_amount: uint256) -> uint256:
+def _exit_lp(_amount: uint256, _query: bool) -> uint256:
     """
     @notice Removes YBAL from BALWETH/YBAL pool and burns associated BPTs
     @param _amounts The amounts of BALWETH and YBAL (respectively) to LP with
@@ -299,6 +368,12 @@ def _exit_lp(_amount: uint256) -> uint256:
         fromInternalBalance: False
     })
     
+    if _query:
+        bpt_in: uint256 = 0
+        amounts_out: DynArray[uint256, 3] = empty(DynArray[uint256, 3])
+        bpt_in, amounts_out = IQueryHelper(QUERY_HELPER).queryExit(POOL_ID_YBAL, self, self, request)
+        return amounts_out[1] # YBAL is at index 1
+
     IBalancerVault(BALVAULT).exitPool(POOL_ID_YBAL, self, self, request)
     return ERC20(YBAL).balanceOf(self) - before_balance
 

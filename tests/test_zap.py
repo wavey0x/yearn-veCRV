@@ -5,12 +5,33 @@ import time
 from eth_abi import encode
 from brownie.convert import to_bytes
 
+def test_zap_queries(zap, strategist, input_tokens, output_tokens, 
+             amount, user, chain, weth, ybal, st_ybal, 
+             lp_ybal, gov, bal, balweth, pool, balancer_vault,
+             using_tenderly
+    ):
+
+    amount_in = 1e16
+    for i in input_tokens:
+        for o in output_tokens:
+            if i == o:
+                continue
+            input_token = Contract(i)
+            output_token = Contract(o)
+            amount_out = zap.queryZapOutput.call(i, o, amount_in, True)
+
+            print(f'{input_token.symbol()} {amount_in/1e18} --->')
+            print(f'{output_token.symbol()} {amount_out/1e18}\n')
+
+    assert False
+
 def test_zap(zap, strategist, input_tokens, output_tokens, 
              amount, user, chain, weth, ybal, st_ybal, 
              lp_ybal, gov, bal, balweth, pool, balancer_vault,
              using_tenderly
     ):
     
+    user2 = accounts[1]
     recipient = user
 
     # To make testing easy, we loosen up our buffer
@@ -154,7 +175,7 @@ def supply_a_lot_of_liquidity(user, ybal, pool):
     tokens = list(vault.getPoolTokens(pool_id)[0])
 
     INITIAL_BPT_SUPPLY = 2 ** (112) - 1
-    
+
     half = 1_000 * 10 ** 18
     
     # Token approvals to vault
