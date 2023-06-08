@@ -23,8 +23,6 @@ def test_zap_queries(zap, strategist, input_tokens, output_tokens,
             print(f'{input_token.symbol()} {amount_in/1e18} --->')
             print(f'{output_token.symbol()} {amount_out/1e18}\n')
 
-    assert False
-
 def test_zap(zap, strategist, input_tokens, output_tokens, 
              amount, user, chain, weth, ybal, st_ybal, 
              lp_ybal, gov, bal, balweth, pool, balancer_vault,

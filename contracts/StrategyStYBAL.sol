@@ -168,13 +168,12 @@ contract Strategy is BaseStrategy {
         proxy = _proxy;
     }
 
-    // @dev Set true to ignore 3CRV claim from proxy. This allows us to bypass a revert if necessary.
     function setIgnoreClaim(bool _ignoreClaim) external onlyEmergencyAuthorized {
         ignoreClaim = _ignoreClaim;
     }
 
     // @dev Toggle disable public claim
-    function setdisableClaim(bool _disableClaim) external onlyEmergencyAuthorized {
+    function setDisableClaim(bool _disableClaim) external onlyEmergencyAuthorized {
         disableClaim = _disableClaim;
     }
 

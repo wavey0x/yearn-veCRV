@@ -57,7 +57,7 @@ contract StrategyProxy {
     /// @notice Balancer's BAL token address.
     address public constant bal = 0xba100000625a3754423978a60c9317c58a424e3D;
 
-    /// @notice Curve's BAL/WETH token address.
+    /// @notice BAL/WETH token address.
     address public constant balweth = 0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56;
 
     /// @notice Recipient of weekly admin fees.
@@ -93,7 +93,7 @@ contract StrategyProxy {
     /// @notice Current governance address.
     address public governance = 0x36666EC6315E9606f03fc6527E396B95bcA4D384;
 
-    /// @notice Curve vault factory address. 
+    /// @notice Vault factory address. 
     address public factory;
 
     /// @notice This voter's last time cursor, updated on each claim of admin fees.

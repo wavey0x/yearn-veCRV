@@ -59,9 +59,9 @@ event UpdateMintBuffer:
 
 INPUT_TOKENS: public(immutable(address[3]))
 OUTPUT_TOKENS: public(immutable(address[3]))
-
 name: public(String[32])
-sweep_recipient: public(address)
+SWEEP_RECIPIENT: public(immutable(address))
+
 mint_buffer: public(uint256) # For use by front-end
 
 BALVAULT: constant(address) =   0xBA12222222228d8Ba445958a75a0704d566BF2C8 # BALANCER VAULT
@@ -79,7 +79,7 @@ QUERY_HELPER: constant(address) =           0xE39B5e3B6D74016b2F6A9673D7d7493B6D
 @external
 def __init__():
     self.name = "Zap: YBAL v1"
-    self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
+    SWEEP_RECIPIENT = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
     self.mint_buffer = 15
 
     assert ERC20(BAL).approve(BALVAULT, max_value(uint256))
@@ -116,6 +116,7 @@ def zap(
     @param _mint Determines whether zap will mint or swap into YBAL - optimal value should be computed off-chain
     @return Amount of output token transferred to the _recipient
     """
+    assert _recipient != empty(address)
     assert _amount_in > 0   # dev: amount is zero
     assert _input_token in INPUT_TOKENS or _input_token in OUTPUT_TOKENS # dev: invalid input token
     assert _output_token in OUTPUT_TOKENS   # dev: invalid output token
@@ -283,9 +284,10 @@ def _lp_balweth(_amounts: DynArray[uint256,2], _query: bool) -> uint256:
         BAL,
         WETH,
     ]
-    user_data: Bytes[160] = _abi_encode(
+    user_data: Bytes[192] = _abi_encode(
         convert(1, uint8), # EXACT_TOKENS_IN_FOR_BPT_OUT
         _amounts,
+        convert(0, uint256) # Min BPT out
     )
 
     request: JoinPoolRequest = JoinPoolRequest({
@@ -379,21 +381,21 @@ def _exit_lp(_amount: uint256, _query: bool) -> uint256:
 
 @external
 def sweep(_token: address, _amount: uint256 = max_value(uint256)):
-    assert msg.sender == self.sweep_recipient
+    assert msg.sender == SWEEP_RECIPIENT
     value: uint256 = _amount
     if value == max_value(uint256):
         value = ERC20(_token).balanceOf(self)
-    assert ERC20(_token).transfer(self.sweep_recipient, value, default_return_value=True)
+    assert ERC20(_token).transfer(SWEEP_RECIPIENT, value, default_return_value=True)
 
 @external
 def set_mint_buffer(_new_buffer: uint256):
     """
     @notice 
-        Allow sweep_recipient to express a preference towards minting over swapping 
+        Allow SWEEP_RECIPIENT to express a preference towards minting over swapping 
         to save gas and improve overall locked position
     @param _new_buffer New percentage (expressed in BPS) to nudge zaps towards minting
     """
-    assert msg.sender == self.sweep_recipient
+    assert msg.sender == SWEEP_RECIPIENT
     assert _new_buffer < 500 # dev: buffer too high
     self.mint_buffer = _new_buffer
     log UpdateMintBuffer(_new_buffer)

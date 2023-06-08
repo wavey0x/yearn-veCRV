@@ -13,6 +13,9 @@ interface VoteEscrow {
 
 contract BalancerYBALVoter {
     using SafeERC20 for IERC20;
+
+    event GovernanceUpdated(address indexed goverance);
+
     address public escrow; // veContract addr
     address public token; // token to lock
     address public governance = 0x36666EC6315E9606f03fc6527E396B95bcA4D384;
@@ -59,6 +62,7 @@ contract BalancerYBALVoter {
     function setGovernance(address _governance) external {
         require(msg.sender == governance, "!governance");
         governance = _governance;
+        emit GovernanceUpdated(_governance);
     }
     
     function execute(address payable to, uint value, bytes calldata data) external returns (bool, bytes memory) {
