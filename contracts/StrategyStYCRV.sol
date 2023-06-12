@@ -6,10 +6,12 @@ pragma experimental ABIEncoderV2;
 
 import { BaseStrategy } from "@yearnvaults/contracts/BaseStrategy.sol";
 import {SafeERC20, SafeMath, IERC20, Address} from "@openzeppelinV3/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 
 
 interface ITradeFactory {
     function enable(address, address) external;
+    function disable(address, address) external;
 }
 
 interface IVoterProxy {
@@ -30,6 +32,7 @@ contract Strategy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     uint profitThreshold = 5_000e18;
     address public tradeFactory;
@@ -37,10 +40,12 @@ contract Strategy is BaseStrategy {
     address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
     IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
     bool public ignoreClaim;
+    bool public disableClaim;
+    EnumerableSet.AddressSet private tokenList;
 
     constructor(address _vault) BaseStrategy(_vault) public {
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012;
-        tradeFactory = 0x7BAF843e06095f68F4990Ca50161C2C4E4e01ec6;
+        tradeFactory = 0xb634316E06cC0B358437CbadD4dC94F1D3a92B3b;
         proxy = IVoter(voter).strategy();
     }
 
@@ -67,7 +72,7 @@ contract Strategy is BaseStrategy {
             (_debtPayment, ) = liquidatePosition(_debtOutstanding);
         }
 
-        // doClaim is a toggle which allows us to bypass claim logic if it is reverting
+        // ignoreClaim is a toggle which allows us to bypass claim logic if it is reverting
         if (!ignoreClaim) _claim();
 
         uint256 debt = vault.strategies(address(this)).totalDebt;
@@ -140,7 +145,8 @@ contract Strategy is BaseStrategy {
         return want.balanceOf(address(this));
     }
 
-    function claim() public onlyVaultManagers {
+    function claim() external {
+        require(!disableClaim, "disabledClaim");
         _claim();
     }
 
@@ -169,6 +175,11 @@ contract Strategy is BaseStrategy {
         ignoreClaim = _ignoreClaim;
     }
 
+    // @dev Toggle disable public claim
+    function setdisableClaim(bool _disableClaim) external onlyEmergencyAuthorized {
+        disableClaim = _disableClaim;
+    }
+
     function setProfitThreshold(uint _profitThreshold) external onlyVaultManagers {
         profitThreshold = _profitThreshold;
     }
@@ -185,23 +196,60 @@ contract Strategy is BaseStrategy {
 
     function setTradeFactory(address _tradeFactory) external onlyGovernance {
         if (tradeFactory != address(0)) {
-            _removeTradeFactoryPermissions();
+            _removeTradeFactoryPermissions(true);
         }
-
-        // approve and set up trade factory
-        crv3.safeApprove(_tradeFactory, type(uint256).max);
-        ITradeFactory tf = ITradeFactory(_tradeFactory);
-        tf.enable(address(crv3), address(want));
         tradeFactory = _tradeFactory;
     }
 
-    function removeTradeFactoryPermissions() external onlyVaultManagers {
-        _removeTradeFactoryPermissions();
-
+    function setTradeFactory(address _tradeFactory, address[] calldata _tokens) external onlyGovernance {
+        if (tradeFactory != address(0)) {
+            _removeTradeFactoryPermissions(true);
+        }
+        tradeFactory = _tradeFactory;
+        uint length = _tokens.length;
+        for(uint i; i < length; ++i){
+            _approveTokenForTradeFactory(_tradeFactory, _tokens[i]);
+        }
     }
 
-    function _removeTradeFactoryPermissions() internal {
-        crv3.safeApprove(tradeFactory, 0);
+    function approveTokenForTradeFactory(address _token) external onlyGovernance {
+        _approveTokenForTradeFactory(tradeFactory, _token);
+    }
+
+    function _approveTokenForTradeFactory(address tf, address _token) internal {
+        require(_token != address(want), "wantBlocked");
+        if(tokenList.add(_token)){
+            IERC20(_token).safeApprove(tf, type(uint).max);
+            ITradeFactory(tf).enable(_token, address(want));
+        }
+    }
+
+    /// @notice Remove permissions from tradefactory
+    /// @param _disableTf Specify whether also disable TF. Option is given in case we need to bypass a reverting disable.
+    function removeTradeFactoryPermissions(bool _disableTf) external onlyVaultManagers {
+        _removeTradeFactoryPermissions(_disableTf);
+    }
+
+    function _removeTradeFactoryPermissions(bool _disableTf) internal {
+        address tf = tradeFactory;
+        uint length = tokenList.length();
+        for (uint i; i < length; i++) {
+            address token = tokenList.at(i);
+            IERC20(token).safeApprove(tf, 0);
+            if (_disableTf) ITradeFactory(tf).disable(token, address(want));
+        }
+        delete tokenList;
         tradeFactory = address(0);
+    }
+
+    function isOnTokenList(address _token) internal view returns (bool) {
+        return tokenList.contains(_token);
+    }
+
+    function getTokenList() public view returns (address[] memory _tokenList) {
+        _tokenList = new address[](tokenList.length());
+        for (uint i; i < tokenList.length(); i++) {
+            _tokenList[i] = tokenList.at(i);
+        }
     }
 }

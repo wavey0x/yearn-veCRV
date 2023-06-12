@@ -1,4 +1,4 @@
-# @version 0.3.6
+# @version 0.3.7
 
 from vyper.interfaces import ERC20
 from vyper.interfaces import ERC20Detailed
@@ -88,19 +88,19 @@ def approve(_spender : address, _value : uint256) -> bool:
 def _mint(_to: address, _value: uint256):
     self.totalSupply += _value
     self.balanceOf[_to] += _value
-    log Transfer(ZERO_ADDRESS, _to, _value)
+    log Transfer(empty(address), _to, _value)
 
 @external
-def mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender) -> uint256:
+def mint(_amount: uint256 = max_value(uint256), _recipient: address = msg.sender) -> uint256:
     """
     @notice Donate any amount of CRV to mint yCRV 1 to 1. 
     Donations are non-redeemable, and will be locked forever.
     @param _amount The desired amount of CRV to burn and yCRV to mint.
     @param _recipient The address which minted tokens should be received at.
     """
-    assert _recipient not in [self, ZERO_ADDRESS]
+    assert _recipient not in [self, empty(address)]
     amount: uint256 = _amount
-    if amount == MAX_UINT256:
+    if amount == max_value(uint256):
         amount = ERC20(CRV).balanceOf(msg.sender)
     assert amount > 0
     assert ERC20(CRV).transferFrom(msg.sender, VOTER, amount)  # dev: no allowance
@@ -109,15 +109,15 @@ def mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender) -> ui
     return amount
 
 @external
-def burn_to_mint(_amount: uint256 = MAX_UINT256, _recipient: address = msg.sender) -> uint256:
+def burn_to_mint(_amount: uint256 = max_value(uint256), _recipient: address = msg.sender) -> uint256:
     """
     @dev burn an amount of yveCRV token and mint yCRV token 1 to 1.
     @param _amount The amount of yveCRV to burn and yCRV to mint.
     @param _recipient The address which minted tokens should be received at.
     """
-    assert _recipient not in [self, ZERO_ADDRESS]
+    assert _recipient not in [self, empty(address)]
     amount: uint256 = _amount
-    if amount == MAX_UINT256:
+    if amount == max_value(uint256):
         amount = ERC20(YVECRV).balanceOf(msg.sender)
     assert amount > 0
     assert ERC20(YVECRV).transferFrom(msg.sender, self, amount)  # dev: no allowance
@@ -133,11 +133,11 @@ def set_sweep_recipient(_proposed_recipient: address):
     log UpdateSweepRecipient(_proposed_recipient)
 
 @external
-def sweep(_token: address, _amount: uint256 = MAX_UINT256):
+def sweep(_token: address, _amount: uint256 = max_value(uint256)):
     assert msg.sender == self.sweep_recipient
     assert _token != YVECRV
     amount: uint256 = _amount
-    if amount == MAX_UINT256:
+    if amount == max_value(uint256):
         amount = ERC20(_token).balanceOf(self)
     assert amount > 0
     assert ERC20(_token).transfer(self.sweep_recipient, amount, default_return_value=True)
