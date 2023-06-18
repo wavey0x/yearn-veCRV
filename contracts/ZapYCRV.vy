@@ -66,48 +66,6 @@ def __init__():
     LEGACY_TOKENS = [YVECRV, YVBOOST]
     OUTPUT_TOKENS = [YCRV, STYCRV, LPYCRV_V2]
 
-@internal
-def _convert_crv(amount: uint256) -> uint256:
-    output_amount: uint256 = Curve(POOL_V2).get_dy(0, 1, amount)
-    buffered_amount: uint256 = amount + (amount * self.mint_buffer / 10_000)
-    if output_amount > buffered_amount:
-        return Curve(POOL_V2).exchange(0, 1, amount, 0)
-    else:
-        return IYCRV(YCRV).mint(amount)
-
-@internal
-def _lp(_amounts: uint256[2]) -> uint256:
-    return Curve(POOL_V2).add_liquidity(_amounts, 0)
-
-@internal
-def _convert_to_output(_output_token: address, amount: uint256, _min_out: uint256, _recipient: address) -> uint256:
-    # dev: output token and amount values have already been validated
-    if _output_token == STYCRV:
-        amount_out: uint256 = Vault(STYCRV).deposit(amount, _recipient)
-        assert amount_out >= _min_out # dev: min out
-        return amount_out
-    assert _output_token == LPYCRV_V2
-    amount_out: uint256 = Vault(LPYCRV_V2).deposit(self._lp([0, amount]), _recipient)
-    assert amount_out >= _min_out # dev: min out
-    return amount_out
-
-@internal
-def _zap_from_legacy(_input_token: address, _output_token: address, _amount: uint256, _min_out: uint256, _recipient: address) -> uint256:
-    # @dev This function handles any inputs that are legacy tokens (yveCRV, yvBOOST)
-    amount: uint256 = _amount
-    assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
-    if _input_token == YVBOOST:
-        amount = Vault(YVBOOST).withdraw(amount)
-
-    # Mint YCRV
-    if _output_token == YCRV:
-        IYCRV(YCRV).burn_to_mint(amount, _recipient)
-        assert amount >= _min_out # dev: min out
-        return amount
-    IYCRV(YCRV).burn_to_mint(amount)
-    return self._convert_to_output(_output_token, amount, _min_out, _recipient)
-    
-
 @external
 def zap(_input_token: address, _output_token: address, _amount_in: uint256 = max_value(uint256), _min_out: uint256 = 0, _recipient: address = msg.sender) -> uint256:
     """
@@ -168,11 +126,46 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = max
         return amount
     return self._convert_to_output(_output_token, amount, _min_out, _recipient)
 
-@external
-def set_sweep_recipient(_proposed_sweep_recipient: address):
-    assert msg.sender == self.sweep_recipient
-    self.sweep_recipient = _proposed_sweep_recipient
-    log UpdateSweepRecipient(_proposed_sweep_recipient)
+@internal
+def _zap_from_legacy(_input_token: address, _output_token: address, _amount: uint256, _min_out: uint256, _recipient: address) -> uint256:
+    # @dev This function handles any inputs that are legacy tokens (yveCRV, yvBOOST)
+    amount: uint256 = _amount
+    assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
+    if _input_token == YVBOOST:
+        amount = Vault(YVBOOST).withdraw(amount)
+
+    # Mint YCRV
+    if _output_token == YCRV:
+        IYCRV(YCRV).burn_to_mint(amount, _recipient)
+        assert amount >= _min_out # dev: min out
+        return amount
+    IYCRV(YCRV).burn_to_mint(amount)
+    return self._convert_to_output(_output_token, amount, _min_out, _recipient)
+    
+@internal
+def _convert_crv(amount: uint256) -> uint256:
+    output_amount: uint256 = Curve(POOL_V2).get_dy(0, 1, amount)
+    buffered_amount: uint256 = amount + (amount * self.mint_buffer / 10_000)
+    if output_amount > buffered_amount:
+        return Curve(POOL_V2).exchange(0, 1, amount, 0)
+    else:
+        return IYCRV(YCRV).mint(amount)
+
+@internal
+def _lp(_amounts: uint256[2]) -> uint256:
+    return Curve(POOL_V2).add_liquidity(_amounts, 0)
+
+@internal
+def _convert_to_output(_output_token: address, amount: uint256, _min_out: uint256, _recipient: address) -> uint256:
+    # dev: output token and amount values have already been validated
+    if _output_token == STYCRV:
+        amount_out: uint256 = Vault(STYCRV).deposit(amount, _recipient)
+        assert amount_out >= _min_out # dev: min out
+        return amount_out
+    assert _output_token == LPYCRV_V2
+    amount_out: uint256 = Vault(LPYCRV_V2).deposit(self._lp([0, amount]), _recipient)
+    assert amount_out >= _min_out # dev: min out
+    return amount_out
 
 @view
 @internal
@@ -331,3 +324,9 @@ def set_mint_buffer(_new_buffer: uint256):
     assert _new_buffer < 500 # dev: buffer too high
     self.mint_buffer = _new_buffer
     log UpdateMintBuffer(_new_buffer)
+
+@external
+def set_sweep_recipient(_proposed_sweep_recipient: address):
+    assert msg.sender == self.sweep_recipient
+    self.sweep_recipient = _proposed_sweep_recipient
+    log UpdateSweepRecipient(_proposed_sweep_recipient)
