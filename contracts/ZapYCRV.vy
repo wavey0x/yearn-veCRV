@@ -39,7 +39,6 @@ LPYCRV_V1: constant(address) =  0xc97232527B62eFb0D8ed38CF3EA103A6CcA4037e # LP-
 LPYCRV_V2: constant(address) =  0x6E9455D109202b426169F0d8f01A3332DAE160f3 # LP-YCRV
 POOL_V1: constant(address) =    0x453D92C7d4263201C69aACfaf589Ed14202d83a4 # OLD POOL
 POOL_V2: constant(address) =    0x99f5aCc8EC2Da2BC0771c32814EFF52b712de1E5 # NEW POOL
-POOL_OLD: constant(address) =   0x453D92C7d4263201C69aACfaf589Ed14202d83a4 # POOL
 CVXCRV: constant(address) =     0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7 # CVXCRV
 CVXCRVPOOL: constant(address) = 0x9D0464996170c6B9e75eED71c68B99dDEDf279e8 # CVXCRVPOOL
 LEGACY_TOKENS: public(immutable(address[2]))
@@ -99,26 +98,29 @@ def zap(_input_token: address, _output_token: address, _amount_in: uint256 = max
         if _input_token == CVXCRV:
             amount = Curve(CVXCRVPOOL).exchange(1, 0, amount, 0)
         amount = self._convert_crv(amount)
-    elif _input_token == LPYCRV_V1:
-        # If this input token is chosen, we assume it is a migration. 
-        # This allows us to hardcode a single route, no need for many permutations to all possible outputs.
+    elif _input_token in [LPYCRV_V1, POOL_V1]:
+        # If this input token path is chosen, we assume it is a migration. 
+        # This allows us to hardcode a single route, 
+        # no need for many permutations to all possible outputs.
         assert _output_token == LPYCRV_V2
         assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
-        amount = Vault(LPYCRV_V1).withdraw(amount)
+        if _input_token == LPYCRV_V1:
+            amount = Vault(LPYCRV_V1).withdraw(amount)
         amounts: uint256[2] = Curve(POOL_V1).remove_liquidity(amount, [0,0])
         amount = Curve(POOL_V2).add_liquidity(amounts, 0)
         amount = Vault(LPYCRV_V2).deposit(amount, _recipient)
         assert amount >= _min_out
         return amount
     else:
-        assert _input_token in OUTPUT_TOKENS   # dev: invalid input token address
+        assert _input_token in OUTPUT_TOKENS or _input_token == POOL_V2 # dev: invalid input token address
         assert ERC20(_input_token).transferFrom(msg.sender, self, amount)
 
     if _input_token == STYCRV:
         amount = Vault(STYCRV).withdraw(amount)
-    elif _input_token == LPYCRV_V2:
-        lp_amount: uint256 = Vault(LPYCRV_V2).withdraw(amount)
-        amount = Curve(POOL_V2).remove_liquidity_one_coin(lp_amount, 1, 0)
+    elif _input_token in [LPYCRV_V2, POOL_V2]:
+        if _input_token == LPYCRV_V2:
+            amount = Vault(LPYCRV_V2).withdraw(amount)
+        amount = Curve(POOL_V2).remove_liquidity_one_coin(amount, 1, 0)
 
     if _output_token == YCRV:
         assert amount >= _min_out # dev: min out
@@ -202,7 +204,13 @@ def relative_price(_input_token: address, _output_token: address, _amount_in: ui
     assert _output_token in OUTPUT_TOKENS  # dev: invalid output token address
     if _input_token in LEGACY_TOKENS:
         return self._relative_price_from_legacy(_input_token, _output_token, _amount_in)
-    assert _input_token == CRV or _input_token in OUTPUT_TOKENS or _input_token == CVXCRV or _input_token == LPYCRV_V1 # dev: invalid input token address
+    assert (
+        _input_token == CRV 
+        or _input_token in OUTPUT_TOKENS 
+        or _input_token == CVXCRV 
+        or _input_token == LPYCRV_V1
+        or _input_token in [POOL_V1, POOL_V2] # dev: invalid input token address
+    )
     
     if _amount_in == 0:
         return 0
@@ -211,13 +219,15 @@ def relative_price(_input_token: address, _output_token: address, _amount_in: ui
         return _amount_in
     elif _input_token == STYCRV:
         amount = Vault(STYCRV).pricePerShare() * amount / 10 ** 18
-    elif _input_token == LPYCRV_V2:
-        lp_amount: uint256 = Vault(LPYCRV_V2).pricePerShare() * amount / 10 ** 18
-        amount = Curve(POOL_V2).get_virtual_price() * lp_amount / 10 ** 18
-    elif _input_token == LPYCRV_V1:
+    elif _input_token in [LPYCRV_V2, POOL_V2]:
+        if _input_token == LPYCRV_V2:
+            amount = Vault(LPYCRV_V2).pricePerShare() * amount / 10 ** 18
+        amount = Curve(POOL_V2).get_virtual_price() * amount / 10 ** 18
+    elif _input_token in [LPYCRV_V1, POOL_V1]:
         assert _output_token == LPYCRV_V2
-        lp_amount: uint256 = Vault(LPYCRV_V1).pricePerShare() * amount / 10 ** 18
-        amount = Curve(POOL_V1).get_virtual_price() * lp_amount / 10 ** 18
+        if _input_token == LPYCRV_V1:
+            amount = Vault(LPYCRV_V1).pricePerShare() * amount / 10 ** 18
+        amount = Curve(POOL_V1).get_virtual_price() * amount / 10 ** 18
 
     if _output_token == YCRV:
         return amount
@@ -271,14 +281,15 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
         buffered_amount: uint256 = amount + (amount * self.mint_buffer / 10_000)
         if output_amount > buffered_amount: # dev: ensure calculation uses buffer
             amount = output_amount
-    elif _input_token == LPYCRV_V1:
+    elif _input_token in [LPYCRV_V1, POOL_V1]:
         assert _output_token == LPYCRV_V2
-        lp_amount: uint256 = Vault(LPYCRV_V1).pricePerShare() * amount / 10 ** 18
-        amounts: uint256[2] = self.assets_amounts_from_lp(POOL_V1, lp_amount)
+        if _input_token == LPYCRV_V1:
+            amount = Vault(LPYCRV_V1).pricePerShare() * amount / 10 ** 18
+        amounts: uint256[2] = self.assets_amounts_from_lp(POOL_V1, amount)
         amount = Curve(POOL_V2).calc_token_amount(amounts, True) # Deposit
         return amount * 10 ** 18 / Vault(LPYCRV_V2).pricePerShare()
     else:
-        assert _input_token in OUTPUT_TOKENS   # dev: invalid input token address
+        assert _input_token in OUTPUT_TOKENS or _input_token == POOL_V2   # dev: invalid input token address
     
     if amount == 0:
         return 0
@@ -288,9 +299,10 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
 
     if _input_token == STYCRV:
         amount = Vault(STYCRV).pricePerShare() * amount / 10 ** 18
-    elif _input_token == LPYCRV_V2:
-        lp_amount: uint256 = Vault(LPYCRV_V2).pricePerShare() * amount / 10 ** 18
-        amount = Curve(POOL_V2).calc_withdraw_one_coin(lp_amount, 1)
+    elif _input_token in [LPYCRV_V2, POOL_V2]:
+        if _input_token == LPYCRV_V2:
+            amount = Vault(LPYCRV_V2).pricePerShare() * amount / 10 ** 18
+        amount = Curve(POOL_V2).calc_withdraw_one_coin(amount, 1)
 
     if _output_token == YCRV:
         return amount

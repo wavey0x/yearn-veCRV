@@ -36,16 +36,19 @@ def whale_yvboost(accounts):
     yield accounts.at("0x9461173740D27311b176476FA27e94C681b1Ea6b", force=True)
 
 @pytest.fixture
-def user(accounts, yveCrv, yvboost, crv, whale_yvecrv, whale_crv, lp_ycrv_v1, lp_ycrv, whale_yvboost, cvxcrv, whale_cvxcrv):
+def user(accounts, yveCrv, yvboost, ycrv, crv, whale_yvecrv, whale_crv, lp_ycrv_v1, lp_ycrv, whale_yvboost, cvxcrv, whale_cvxcrv):
+    user = accounts[0]
     lp_v1_whale = accounts.at('0x7d2aB9CA511EBD6F03971Fb417d3492aA82513f0', force=True)
-    amount = 15_000e18
+    amount = 60_000e18
     crv.transfer(accounts[0], amount,{'from':whale_crv})
     yveCrv.transfer(accounts[0], amount,{'from':whale_yvecrv})
     cvxcrv.transfer(accounts[0], amount,{'from':whale_cvxcrv})
     yvboost.transfer(accounts[0], amount,{'from':whale_yvboost})
     lp_ycrv_v1.transfer(accounts[0], amount,{'from':lp_v1_whale})
+    crv.approve(ycrv, 2**256-1,{'from':user})
+    ycrv.mint(16_000e18,{'from':user})
     # lp_ycrv.transfer(accounts[0], amount,{'from':lp_v1_whale})
-    yield accounts[0]
+    yield user
 
 @pytest.fixture
 def rewards(accounts):
@@ -193,6 +196,21 @@ def pool():
 def lp_ycrv():
     yield Contract('0x6E9455D109202b426169F0d8f01A3332DAE160f3')
 
+@pytest.fixture
+def pool_v1(accounts):
+    whale = accounts.at('0x5980d25B4947594c26255C0BF301193ab64ba803',force=True)
+    pool = Contract('0x453D92C7d4263201C69aACfaf589Ed14202d83a4',owner=whale)
+    pool.transfer(accounts[0], 10_000e18)
+    yield pool
+
+@pytest.fixture
+def pool_v2(accounts, user):
+    pool = Contract('0x99f5aCc8EC2Da2BC0771c32814EFF52b712de1E5',owner=user)
+    # Mint some LPs
+    Contract(pool.coins(0),owner=user).approve(pool,2**256-1)
+    Contract(pool.coins(1),owner=user).approve(pool,2**256-1)
+    pool.add_liquidity([15_000e18,15_000e18],0)
+    yield pool
 
 @pytest.fixture
 def lp_ycrv_v1():
