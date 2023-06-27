@@ -1,4 +1,11 @@
 # @version 0.3.7
+"""
+@title YCRV Zap v3
+@license MIT
+@author Yearn Finance
+@notice Zap into yCRV ecosystem positions in a single transaction
+@dev To use safely, supply a reasonable min_out value during your zap.
+"""
 
 from vyper.interfaces import ERC20
 from vyper.interfaces import ERC20Detailed
@@ -50,7 +57,7 @@ mint_buffer: public(uint256)
 
 @external
 def __init__():
-    self.name = "Zap: YCRV v3"
+    self.name = "YCRV Zap v3"
     self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
     self.mint_buffer = 15
 
