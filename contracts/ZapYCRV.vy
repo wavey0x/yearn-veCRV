@@ -1,7 +1,7 @@
 # @version 0.3.7
 """
 @title YCRV Zap v3
-@license MIT
+@license GNU AGPLv3
 @author Yearn Finance
 @notice Zap into yCRV ecosystem positions in a single transaction
 @dev To use safely, supply a reasonable min_out value during your zap.
