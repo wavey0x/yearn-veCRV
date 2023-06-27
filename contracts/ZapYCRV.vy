@@ -209,8 +209,8 @@ def relative_price(_input_token: address, _output_token: address, _amount_in: ui
         or _input_token in OUTPUT_TOKENS 
         or _input_token == CVXCRV 
         or _input_token == LPYCRV_V1
-        or _input_token in [POOL_V1, POOL_V2] # dev: invalid input token address
-    )
+        or _input_token in [POOL_V1, POOL_V2]
+    ) # dev: invalid input token address
     
     if _amount_in == 0:
         return 0
