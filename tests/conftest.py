@@ -21,7 +21,6 @@ def isolation(fn_isolation):
 @pytest.fixture
 def gov(accounts):
     yield accounts.at("0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52", force=True)
-    #yield accounts.at("0x6AFB7c9a6E8F34a3E0eC6b734942a5589A84F44C", force=True)
 
 @pytest.fixture
 def yvboost():
@@ -147,50 +146,11 @@ def vault_abi():
 
 @pytest.fixture
 def st_ycrv(strategist, ycrv, gov, yveCrv,vault_abi, user):
-    # registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
-    # address = registry.newVault(ycrv,gov,gov,"Staked YCRV","st-YCRV",{'from':gov}).return_value
-    # v = Contract.from_abi("pool", address, vault_abi)
-    # v.setDepositLimit(100e25, {'from':gov})
-    # ycrv.approve(v, 2**256-1, {'from':user})
-    # yveCrv.approve(ycrv, 2**256-1, {'from':user})
-    # ycrv.burn_to_mint(101e18, {'from':user})
-    # v.deposit(100e18,{'from':user})
-    # ycrv.transfer(v, 1e18,{'from':user}) # Increase pps a bit
     yield Contract('0x27B5739e22ad9033bcBf192059122d163b60349D')
 
 @pytest.fixture
 def pool():
     yield Contract('0x99f5aCc8EC2Da2BC0771c32814EFF52b712de1E5')
-#     factory = Contract('0xb9fc157394af804a3578134a6585c0dc9cc990d4', owner=strategist)
-#     name = 'Yearn CRV'
-#     symbol = 'yCRV'
-#     coins = [
-#         '0xD533a949740bb3306d119CC777fa900bA034cd52',
-#         ycrv.address,
-#         ZERO_ADDRESS,
-#         ZERO_ADDRESS
-#     ]
-#     a = 50
-#     fee = 15000000
-#     asset_type = 3
-#     implementation_index = 3
-#     pool_address = factory.deploy_plain_pool(
-#         name, 
-#         symbol, 
-#         coins, 
-#         a, 
-#         fee, 
-#         asset_type, 
-#         implementation_index
-#     ).return_value
-#     pool = Contract.from_abi("pool", pool_address, Contract("0x7E46fd8a30869aa9ed55af031067Df666EfE87da").abi)
-#     yveCrv.approve(ycrv,2**256-1, {'from':user})
-#     ycrv.approve(pool, 2**256-1, {'from':user})
-#     crv.approve(pool, 2**256-1, {'from':user})
-#     ycrv.burn_to_mint(yveCrv.balanceOf(user)/2, {'from':user})
-#     amounts = [105e18, 209e18]
-#     pool.add_liquidity(amounts, chain.time(),{'from': user})
-#     yield pool
 
 @pytest.fixture
 def lp_ycrv():
@@ -313,22 +273,6 @@ def sushiswap_crv(accounts):
 @pytest.fixture
 def sushiswap(Contract):
     yield Contract("0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
-
-# @pytest.fixture
-# def pool(accounts, crv, yveCrv, user):
-#     pool = Contract("0x7E46fd8a30869aa9ed55af031067Df666EfE87da")
-#     yveCrv.approve(pool, 2**256-1, {'from':user})
-#     crv.approve(pool, 2**256-1, {'from':user})
-#     # pool.add_liquidity([100e18,100e18], 0, user, {'from':user})
-#     yield pool
-
-@pytest.fixture
-def not_banteg(accounts):
-    yield accounts.at("0x0035Fc5208eF989c28d47e552E92b0C507D2B318", force=True)
-
-@pytest.fixture
-def klim(accounts):
-    yield accounts.at("0x279a7DBFaE376427FFac52fcb0883147D42165FF", force=True) # airdropper
 
 @pytest.fixture
 def weth_amount(accounts, weth, gov):
