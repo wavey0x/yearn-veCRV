@@ -362,12 +362,11 @@ contract StrategyProxy {
     function claim(address _recipient) external returns (uint amount){
         require(msg.sender == feeRecipient, "!approved");
         if (!claimable()) return 0;
-        uint beforeBalance = IERC20(CRV3).balanceOf(address(proxy));
         address p = address(proxy);
         feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
         lastTimeCursor = feeDistribution.time_cursor_of(address(proxy));
 
-        amount = IERC20(CRV3).balanceOf(address(proxy)) - beforeBalance;
+        amount = IERC20(CRV3).balanceOf(address(proxy));
         if (amount > 0) {
             proxy.safeExecute(CRV3, 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
         }
