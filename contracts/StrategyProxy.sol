@@ -105,7 +105,6 @@ contract StrategyProxy {
     event VoterRevoked(address indexed voter);
     event LockerApproved(address indexed locker);
     event LockerRevoked(address indexed locker);
-    event AdminFeesClaimed(address indexed recipient, uint256 amount);
     event ExtraTokenRecipientApproved(address indexed token, address indexed recipient);
     event ExtraTokenRecipientRevoked(address indexed token, address indexed recipient);
     event RewardTokenApproved(address indexed token, bool approved);
@@ -360,18 +359,17 @@ contract StrategyProxy {
     /// @dev Admin fees become available every Thursday, so we run this expensive
     ///  logic only once per week. May only be called by feeRecipient.
     /// @param _recipient The address to which we transfer 3CRV.
-    function claim(address _recipient) external {
+    function claim(address _recipient) external returns (uint amount){
         require(msg.sender == feeRecipient, "!approved");
-        if (!claimable()) return;
-
+        if (!claimable()) return 0;
+        uint beforeBalance = IERC20(CRV3).balanceOf(address(proxy));
         address p = address(proxy);
         feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
         lastTimeCursor = feeDistribution.time_cursor_of(address(proxy));
 
-        uint256 amount = IERC20(CRV3).balanceOf(address(proxy));
+        amount = IERC20(CRV3).balanceOf(address(proxy)) - beforeBalance;
         if (amount > 0) {
             proxy.safeExecute(CRV3, 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
-            emit AdminFeesClaimed(_recipient, amount);
         }
     }
 
@@ -429,7 +427,7 @@ contract StrategyProxy {
     }
 
     // make sure a strategy can't yoink gauge or LP tokens.
-    function _isSafeToken(address _token) internal returns (bool) {
+    function _isSafeToken(address _token) internal view returns (bool) {
         if (_token == crv) return false;
         try gaugeController.gauge_types(_token) {
             return false;
