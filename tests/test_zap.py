@@ -4,7 +4,7 @@ from re import A
 from brownie import Contract, accounts
 import time
 
-def test_zap(zap, pool, strategist, lp_ycrv, lp_ycrv_v1, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv):
+def test_zap(zap, pool, strategist, pool_v1, pool_v2, lp_ycrv, lp_ycrv_v1, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv):
     yveCrv.approve(ycrv,2**256-1, {'from':user})
     ycrv.burn_to_mint(yveCrv.balanceOf(user)/2, {'from':user})
     crv.approve(zap, 2**256-1, {"from": user})
@@ -14,6 +14,8 @@ def test_zap(zap, pool, strategist, lp_ycrv, lp_ycrv_v1, amount, user, crv3, cvx
     lp_ycrv_v1.approve(zap, 2**256-1, {"from": user})
     lp_ycrv.approve(zap, 2**256-1, {"from": user})
     st_ycrv.approve(zap, 2**256-1, {"from": user})
+    pool_v1.approve(zap, 2**256-1, {"from": user})
+    pool_v2.approve(zap, 2**256-1, {"from": user})
     cvxcrv.approve(zap, 2**256-1, {"from": user})
     ycrv.approve(zap, 2**256-1, {"from": user})
     pool.approve(lp_ycrv, 2**256-1, {"from": whale_crv})
@@ -57,7 +59,7 @@ def test_zap(zap, pool, strategist, lp_ycrv, lp_ycrv_v1, amount, user, crv3, cvx
     except:
         pass
 
-    input_tokens = legacy_tokens + output_tokens
+    input_tokens = legacy_tokens + output_tokens + [lp_ycrv_v1.token(), lp_ycrv.token()]
     input_tokens.append(crv.address)
     input_tokens.append(cvxcrv.address)
     input_tokens.append(lp_ycrv_v1.address)
@@ -65,7 +67,10 @@ def test_zap(zap, pool, strategist, lp_ycrv, lp_ycrv_v1, amount, user, crv3, cvx
     amount = 4_000e18
     for i in input_tokens:
         for o in output_tokens:
-            if i == lp_ycrv_v1.address and o != lp_ycrv.address:
+            if (
+                (i == lp_ycrv_v1.address or i == lp_ycrv_v1.token()) 
+                and o != lp_ycrv.address
+            ):
                 continue # v1 can only go directly to v2
             # if i == lp_ycrv and o == ycrv:
             #     tx = zap.calc_expected_out.transact(i, o, amount)
@@ -77,16 +82,19 @@ def test_zap(zap, pool, strategist, lp_ycrv, lp_ycrv_v1, amount, user, crv3, cvx
             actual = 0
             if i == o:
                 with brownie.reverts():
-                    actual = zap.zap(i, o, amount, r * .99, {'from': user}).return_value
-
+                    tx = zap.zap(i, o, amount, r * .99, {'from': user})
+                    tx.gas_used
+                    actual = tx.return_value
             else:
-                actual = zap.zap(i, o, amount, r * .99, {'from': user}).return_value
+                tx = zap.zap(i, o, amount, r * .99, {'from': user})
+                gas_consumed = tx.gas_used
+                actual = tx.return_value
             assert_balances(zap, pool, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv)
-            print_results(True,i, o, amount, r, s, actual)
+            print_results(True,i, o, amount, r, s, actual, gas_consumed)
 
 
 
-def print_results(is_legacy, i, o, a, r, s, actual):
+def print_results(is_legacy, i, o, a, r, s, actual, gas_consumed):
     # abi = Contract("0x9d409a0A012CFbA9B15F6D4B36Ac57A46966Ab9a").abi
     i = Contract(i).symbol()
     o = Contract(o).symbol()
@@ -101,6 +109,7 @@ def print_results(is_legacy, i, o, a, r, s, actual):
         print(f'Percent off: {"" if abs(diff) < 0.001 else "❌"} {diff:,.7f}%')
         # if abs(diff) > 1:
         #     assert False
+    print(f'⛽️ {gas_consumed:,.2f}')
     print('---')
 
 def pump_crv_price(lp_ycrv, whale_crv, ycrv, crv, user):
