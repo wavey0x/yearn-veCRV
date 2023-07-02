@@ -396,7 +396,10 @@ def set_mint_buffer(_new_buffer: uint256):
     """
     @notice 
         Allow SWEEP_RECIPIENT to express a preference towards minting over swapping 
-        to save gas and improve overall locked position
+        to save gas and improve overall locked position.
+    @dev 
+        This value is meant to be read and applied off-chain by a user interface.
+        As a convenience, we also use this value as slippage protection during swaps.
     @param _new_buffer New percentage (expressed in BPS) to nudge zaps towards minting
     """
     assert msg.sender == SWEEP_RECIPIENT
