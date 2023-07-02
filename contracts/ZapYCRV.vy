@@ -51,13 +51,16 @@ CVXCRVPOOL: constant(address) = 0x9D0464996170c6B9e75eED71c68B99dDEDf279e8 # CVX
 LEGACY_TOKENS: public(immutable(address[2]))
 OUTPUT_TOKENS: public(immutable(address[3]))
 
-name: public(String[32])
 sweep_recipient: public(address)
 mint_buffer: public(uint256)
 
 @external
+@view
+def name() -> String[32]:
+    return "YCRV Zap v3"
+
+@external
 def __init__():
-    self.name = "YCRV Zap v3"
     self.sweep_recipient = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
     self.mint_buffer = 15
 
@@ -211,14 +214,11 @@ def relative_price(_input_token: address, _output_token: address, _amount_in: ui
     assert _output_token in OUTPUT_TOKENS  # dev: invalid output token address
     if _input_token in LEGACY_TOKENS:
         return self._relative_price_from_legacy(_input_token, _output_token, _amount_in)
-    assert (
-        _input_token == CRV 
-        or _input_token in OUTPUT_TOKENS 
-        or _input_token == CVXCRV 
-        or _input_token == LPYCRV_V1
-        or _input_token in [POOL_V1, POOL_V2]
+    assert  (
+        _input_token in [CRV , CVXCRV , LPYCRV_V1 , POOL_V1, POOL_V2]
+        or _input_token in OUTPUT_TOKENS
     ) # dev: invalid input token address
-    
+
     if _amount_in == 0:
         return 0
     amount: uint256 = _amount_in
@@ -277,6 +277,7 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     @return Amount of output token transferred to the _recipient
     """
     assert _output_token in OUTPUT_TOKENS  # dev: invalid output token address
+    assert _input_token != _output_token
     if _input_token in LEGACY_TOKENS:
         return self._calc_expected_out_from_legacy(_input_token, _output_token, _amount_in)
     amount: uint256 = _amount_in
@@ -300,9 +301,6 @@ def calc_expected_out(_input_token: address, _output_token: address, _amount_in:
     
     if amount == 0:
         return 0
-    
-    if _input_token == _output_token:
-        return amount
 
     if _input_token == STYCRV:
         amount = Vault(STYCRV).pricePerShare() * amount / 10 ** 18
@@ -339,6 +337,12 @@ def sweep(_token: address, _amount: uint256 = max_value(uint256)):
 
 @external
 def set_mint_buffer(_new_buffer: uint256):
+    """
+    @notice 
+        Allow SWEEP_RECIPIENT to express a preference towards minting over swapping 
+        to save gas and improve overall locked position
+    @param _new_buffer New percentage (expressed in BPS) to nudge zaps towards minting
+    """
     assert msg.sender == self.sweep_recipient
     assert _new_buffer < 500 # dev: buffer too high
     self.mint_buffer = _new_buffer
