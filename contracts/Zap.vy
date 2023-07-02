@@ -1,4 +1,10 @@
 # @version 0.3.7
+"""
+@title yBAL Zap v1
+@license GNU AGPLv3
+@author Yearn Finance
+@notice Zap into yBAL ecosystem positions in a single transaction
+"""
 
 from vyper.interfaces import ERC20
 from vyper.interfaces import ERC20Detailed
@@ -59,7 +65,6 @@ event UpdateMintBuffer:
 
 INPUT_TOKENS: public(immutable(address[3]))
 OUTPUT_TOKENS: public(immutable(address[3]))
-name: public(String[32])
 SWEEP_RECIPIENT: public(immutable(address))
 
 mint_buffer: public(uint256) # For use by front-end
@@ -77,8 +82,12 @@ POOL_ID_YBAL: constant(bytes32) =           0xd61e198e139369a40818fe05f5d5e6e045
 QUERY_HELPER: constant(address) =           0xE39B5e3B6D74016b2F6A9673D7d7493B6DF549d5
 
 @external
+@view
+def name() -> String[32]:
+    return 'yBAL Zap v1'
+
+@external
 def __init__():
-    self.name = "Zap: YBAL v1"
     SWEEP_RECIPIENT = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
     self.mint_buffer = 15
 
@@ -109,7 +118,7 @@ def zap(
     @dev 
         When zapping between tokens that might incur slippage, it is recommended to supply a _min_out value > 0.
     @param _input_token Address of any supported input token: BAL, WETH, BAL-WETH BPT, or any yBAL ecosystem token
-    @param _output_token Address of any suppoprt output token: yBAL, st-yBAL, lp-yBAL
+    @param _output_token Address of any support output token: yBAL, st-yBAL, lp-yBAL
     @param _amount_in Amount of input token to migrate
     @param _min_out The minimum amount of output token to receive - optimal value should be computed off-chain
     @param _recipient The address where the output token should be sent, default is msg.sender
@@ -154,11 +163,9 @@ def zap(
             amount = _amount_in
         elif _input_token == STYBAL:
             amount = IVault(STYBAL).withdraw(_amount_in)
-            assert amount >= _amount_in # dev: fail on partial withdrawal
         else:
             assert _input_token == LPYBAL # dev: unable to match input token
             amount = IVault(LPYBAL).withdraw(_amount_in)
-            assert amount >= _amount_in # dev: fail on partial withdrawal
             amount = self._exit_lp(amount, False)
 
     # Acquire output token
@@ -192,13 +199,10 @@ def queryZapOutput(
     @return Amount of output token transferred to the _recipient
     """
 
+    assert _input_token != _output_token, "invalid in/out token"
+    assert _input_token in INPUT_TOKENS or _input_token in OUTPUT_TOKENS, "invalid input_token"
+    assert _output_token in OUTPUT_TOKENS, "invalid output_token"
     if _amount_in == 0:
-        return 0
-    if _input_token not in INPUT_TOKENS and _input_token not in OUTPUT_TOKENS:
-        return 0
-    if _output_token not in OUTPUT_TOKENS:
-        return 0
-    if _input_token == _output_token:
         return 0
 
     amount: uint256 = 0
@@ -299,7 +303,7 @@ def _lp_balweth(_amounts: DynArray[uint256,2], _query: bool) -> uint256:
     
     if _query:
         bpt_out: uint256 = 0
-        amounts_in: DynArray[uint256, 3] = empty(DynArray[uint256, 3])
+        amounts_in: DynArray[uint256, 3] = [0, 0, 0]
         bpt_out, amounts_in = IQueryHelper(QUERY_HELPER).queryJoin(POOL_ID_BALWETH, self, self, request)
         return bpt_out
 
@@ -337,7 +341,7 @@ def _lp_balybal(_amounts: DynArray[uint256,2], _query: bool) -> uint256:
     
     if _query:
         bpt_out: uint256 = 0
-        amounts_in: DynArray[uint256, 3] = empty(DynArray[uint256, 3])
+        amounts_in: DynArray[uint256, 3] = [0, 0, 0]
         bpt_out, amounts_in = IQueryHelper(QUERY_HELPER).queryJoin(POOL_ID_YBAL, self, self, request)
         return bpt_out
     
@@ -362,7 +366,7 @@ def _exit_lp(_amount: uint256, _query: bool) -> uint256:
         _amount,            # BPT amount in
         convert(1, uint256) # Exit token index   
     )
-    min_amounts_out: DynArray[uint256, 3] = [0,0,0]
+    min_amounts_out: DynArray[uint256, 3] = [0, 0, 0]
     request: ExitPoolRequest = ExitPoolRequest({
         assets: assets,
         minAmountsOut: min_amounts_out,
@@ -372,7 +376,7 @@ def _exit_lp(_amount: uint256, _query: bool) -> uint256:
     
     if _query:
         bpt_in: uint256 = 0
-        amounts_out: DynArray[uint256, 3] = empty(DynArray[uint256, 3])
+        amounts_out: DynArray[uint256, 3] = [0, 0, 0]
         bpt_in, amounts_out = IQueryHelper(QUERY_HELPER).queryExit(POOL_ID_YBAL, self, self, request)
         return amounts_out[1] # YBAL is at index 1
 
