@@ -63,6 +63,9 @@ def test_zap(zap, pool, strategist, pool_v1, pool_v2, lp_ycrv, lp_ycrv_v1, amoun
     input_tokens.append(crv.address)
     input_tokens.append(cvxcrv.address)
     input_tokens.append(lp_ycrv_v1.address)
+    for i in input_tokens:
+        print(f'{i} {Contract(i).symbol()}')
+    assert False
     # Test some calls
     amount = 4_000e18
     for i in input_tokens:
