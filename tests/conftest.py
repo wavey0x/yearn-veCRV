@@ -123,7 +123,7 @@ def token():
 
 @pytest.fixture
 def pool():
-    yield Contract('0xD61e198e139369a40818FE05F5d5e6e045Cd6eaF')
+    yield Contract('0x616D4D131F1147aC3B3C3CC752BAB8613395B2bB')
 
 @pytest.fixture
 def vebal():
@@ -213,7 +213,7 @@ def vault_abi():
 
 @pytest.fixture
 def lp_ybal():
-    yield Contract('0xD725F5742047B4B4A3110D0b38284227fcaB041e')
+    yield Contract('0x640D2a6540F180aaBa2223480F445D3CD834788B')
 
 @pytest.fixture
 def st_ybal():

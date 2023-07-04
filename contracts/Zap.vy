@@ -31,15 +31,15 @@ struct FundManagement:
     toInternalBalance: bool
 
 struct JoinPoolRequest:
-    assets: DynArray[address, 3]
-    maxAmountsIn: DynArray[uint256, 3]
-    userData: Bytes[224]
+    assets: DynArray[address, 2]
+    maxAmountsIn: DynArray[uint256, 2]
+    userData: Bytes[192]
     fromInternalBalance: bool
 
 struct ExitPoolRequest:
-    assets: DynArray[address, 3]
-    minAmountsOut: DynArray[uint256, 3]
-    userData: Bytes[224]
+    assets: DynArray[address, 2]
+    minAmountsOut: DynArray[uint256, 2]
+    userData: Bytes[192]
     fromInternalBalance: bool
 
 interface IVault:
@@ -56,8 +56,8 @@ interface IBalancerVault:
     def swap(swap_step: SingleSwap, funds: FundManagement, limit: uint256, deadline: uint256) -> uint256: nonpayable
 
 interface IQueryHelper:
-    def queryJoin(poolId: bytes32, sender: address, recipient: address, request: JoinPoolRequest) -> (uint256, DynArray[uint256, 3]): nonpayable
-    def queryExit(poolId: bytes32, sender: address, recipient: address, request: ExitPoolRequest) -> (uint256, DynArray[uint256, 3]): nonpayable
+    def queryJoin(poolId: bytes32, sender: address, recipient: address, request: JoinPoolRequest) -> (uint256, DynArray[uint256, 2]): nonpayable
+    def queryExit(poolId: bytes32, sender: address, recipient: address, request: ExitPoolRequest) -> (uint256, DynArray[uint256, 2]): nonpayable
     def querySwap(swap_step: SingleSwap, funds: FundManagement) -> uint256: nonpayable
 
 event UpdateMintBuffer:
@@ -75,10 +75,10 @@ BALWETH: constant(address) =    0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56 # BAL
 WETH: constant(address) =       0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 # WETH
 YBAL: constant(address) =       0x98E86Ed5b0E48734430BfBe92101156C75418cad # YBAL
 STYBAL: constant(address) =     0xc09cfb625e586B117282399433257a1C0841edf3 # ST-YBAL
-LPYBAL: constant(address) =     0xD725F5742047B4B4A3110D0b38284227fcaB041e # LP-YBAL
-POOL_ADDRESS_YBAL: constant(address) =      0xD61e198e139369a40818FE05F5d5e6e045Cd6eaF # YBAL
+LPYBAL: constant(address) =     0x640D2a6540F180aaBa2223480F445D3CD834788B # LP-YBAL
+POOL_ADDRESS_YBAL: constant(address) =      0x616D4D131F1147aC3B3C3CC752BAB8613395B2bB # YBAL POOL
 POOL_ID_BALWETH: constant(bytes32) =        0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014
-POOL_ID_YBAL: constant(bytes32) =           0xd61e198e139369a40818fe05f5d5e6e045cd6eaf000000000000000000000540
+POOL_ID_YBAL: constant(bytes32) =           0x616d4d131f1147ac3b3c3cc752bab8613395b2bb000200000000000000000584
 QUERY_HELPER: constant(address) =           0xE39B5e3B6D74016b2F6A9673D7d7493B6DF549d5
 
 @external
@@ -303,7 +303,7 @@ def _lp_balweth(_amounts: DynArray[uint256,2], _query: bool) -> uint256:
     
     if _query:
         bpt_out: uint256 = 0
-        amounts_in: DynArray[uint256, 3] = [0, 0, 0]
+        amounts_in: DynArray[uint256, 2] = [0, 0]
         bpt_out, amounts_in = IQueryHelper(QUERY_HELPER).queryJoin(POOL_ID_BALWETH, self, self, request)
         return bpt_out
 
@@ -319,19 +319,18 @@ def _lp_balybal(_amounts: DynArray[uint256,2], _query: bool) -> uint256:
     """
     # We do manual balance checks before/after because Balancer joins don't return BPT amounts
     before_balance: uint256 = ERC20(POOL_ADDRESS_YBAL).balanceOf(self)
-    assets: DynArray[address, 3] = [
+    assets: DynArray[address, 2] = [
         BALWETH,
-        YBAL,
-        POOL_ADDRESS_YBAL,
+        YBAL
     ]
 
-    user_data: Bytes[224] = _abi_encode(
+    user_data: Bytes[192] = _abi_encode(
         convert(1, uint8),  # JoinKind: EXACT_TOKENS_IN_FOR_BPT_OUT
         _amounts,           # Token amounts in
         convert(0, uint256) # Min BPT out
     )
 
-    amounts: DynArray[uint256,3] = [0, _amounts[1], 0]
+    amounts: DynArray[uint256, 2] = [0, _amounts[1]]
     request: JoinPoolRequest = JoinPoolRequest({
         assets: assets,
         maxAmountsIn: amounts,
@@ -341,7 +340,7 @@ def _lp_balybal(_amounts: DynArray[uint256,2], _query: bool) -> uint256:
     
     if _query:
         bpt_out: uint256 = 0
-        amounts_in: DynArray[uint256, 3] = [0, 0, 0]
+        amounts_in: DynArray[uint256, 2] = [0, 0]
         bpt_out, amounts_in = IQueryHelper(QUERY_HELPER).queryJoin(POOL_ID_YBAL, self, self, request)
         return bpt_out
     
@@ -356,17 +355,16 @@ def _exit_lp(_amount: uint256, _query: bool) -> uint256:
     @return Quantity of YBAL tokens removed from the pool
     """
     before_balance: uint256 = ERC20(YBAL).balanceOf(self)
-    assets: DynArray[address, 3] = [
+    assets: DynArray[address, 2] = [
         BALWETH,
-        YBAL,
-        POOL_ADDRESS_YBAL,
+        YBAL
     ]
-    user_data: Bytes[224] = _abi_encode(
+    user_data: Bytes[192] = _abi_encode(
         convert(0, uint8),  # ExitKind = EXACT_BPT_IN_FOR_ONE_TOKEN_OUT
         _amount,            # BPT amount in
         convert(1, uint256) # Exit token index   
     )
-    min_amounts_out: DynArray[uint256, 3] = [0, 0, 0]
+    min_amounts_out: DynArray[uint256, 2] = [0, 0]
     request: ExitPoolRequest = ExitPoolRequest({
         assets: assets,
         minAmountsOut: min_amounts_out,
@@ -376,7 +374,7 @@ def _exit_lp(_amount: uint256, _query: bool) -> uint256:
     
     if _query:
         bpt_in: uint256 = 0
-        amounts_out: DynArray[uint256, 3] = [0, 0, 0]
+        amounts_out: DynArray[uint256, 2] = [0, 0]
         bpt_in, amounts_out = IQueryHelper(QUERY_HELPER).queryExit(POOL_ID_YBAL, self, self, request)
         return amounts_out[1] # YBAL is at index 1
 

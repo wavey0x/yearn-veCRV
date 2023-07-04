@@ -34,7 +34,7 @@ def test_zap(zap, strategist, input_tokens, output_tokens,
 
     # To make testing easy, we loosen up our buffer
     zap.set_mint_buffer(499, {'from':gov})
-    supply_a_lot_of_liquidity(user, ybal, pool)
+    # supply_a_lot_of_liquidity(user, ybal, pool)
     
     for i in input_tokens:
         input_token = Contract(i)
@@ -102,7 +102,7 @@ def test_zap(zap, strategist, input_tokens, output_tokens,
                 assert minted == False
                 string = "N/A"
             print(f'Actual: {string} {net_output/1e18}')
-            print(f'Gas Used: {tx.gas_used:,}')
+            print(f'⛽️ Gas Used: {tx.gas_used:,}')
             print()
             # Checks
             assert user_input_token_balance_before > user_input_token_balance_after
