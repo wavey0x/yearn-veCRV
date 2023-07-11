@@ -16,7 +16,6 @@ interface ITradeFactory {
 
 interface IVoterProxy {
     function lock() external;
-    function claimable() external view returns (bool);
 }
 
 interface IBaseFee {
@@ -38,8 +37,6 @@ contract Strategy is BaseStrategy {
     address public proxy;
     address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
     IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
-    bool public ignoreClaim;
-    bool public disableClaim;
     EnumerableSet.AddressSet private tokenList;
 
     constructor(address _vault) BaseStrategy(_vault) public {
@@ -211,10 +208,6 @@ contract Strategy is BaseStrategy {
         }
         delete tokenList;
         tradeFactory = address(0);
-    }
-
-    function isOnTokenList(address _token) internal view returns (bool) {
-        return tokenList.contains(_token);
     }
 
     function getTokenList() public view returns (address[] memory _tokenList) {
