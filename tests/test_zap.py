@@ -63,6 +63,9 @@ def test_zap(zap, pool, strategist, pool_v1, pool_v2, lp_ycrv, lp_ycrv_v1, amoun
     input_tokens.append(crv.address)
     input_tokens.append(cvxcrv.address)
     input_tokens.append(lp_ycrv_v1.address)
+    for i in input_tokens:
+        print(f'{i} {Contract(i).symbol()}')
+    assert False
     # Test some calls
     amount = 4_000e18
     for i in input_tokens:
@@ -89,7 +92,7 @@ def test_zap(zap, pool, strategist, pool_v1, pool_v2, lp_ycrv, lp_ycrv_v1, amoun
                 tx = zap.zap(i, o, amount, r * .99, {'from': user})
                 gas_consumed = tx.gas_used
                 actual = tx.return_value
-            assert_balances(zap, pool, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv)
+            assert_balances(zap, pool_v1, pool_v2, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv)
             print_results(True,i, o, amount, r, s, actual, gas_consumed)
 
 
@@ -180,7 +183,7 @@ def print_user_balances(user, yvLP, crv, yvboost, yveCrv, pool):
     print("yvLP:", yvLP.balanceOf(user)/1e18)
     print("----------\n")
 
-def assert_balances(zap, pool, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv):
+def assert_balances(zap, pool_v1, pool_v2, strategist, lp_ycrv, amount, user, crv3, cvxcrv, whale_cvxcrv, chain, whale_crv, whale_3crv, gov, st_ycrv, ycrv, yvboost, yveCrv, crv):
     assert ycrv.balanceOf(zap) == 0
     assert crv.balanceOf(zap) == 0
     assert yvboost.balanceOf(zap) == 0
@@ -189,4 +192,5 @@ def assert_balances(zap, pool, strategist, lp_ycrv, amount, user, crv3, cvxcrv, 
     assert st_ycrv.balanceOf(zap) == 0
     assert cvxcrv.balanceOf(zap) == 0
     assert ycrv.balanceOf(zap) == 0
-    assert pool.balanceOf(zap) == 0
+    assert pool_v1.balanceOf(zap) == 0
+    assert pool_v2.balanceOf(zap) == 0

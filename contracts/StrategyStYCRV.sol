@@ -16,8 +16,6 @@ interface ITradeFactory {
 
 interface IVoterProxy {
     function lock() external;
-    function claim(address _recipient) external;
-    function claimable() external view returns (bool);
 }
 
 interface IBaseFee {
@@ -39,8 +37,6 @@ contract Strategy is BaseStrategy {
     address public proxy;
     address public voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934;
     IERC20 internal constant crv3 = IERC20(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
-    bool public ignoreClaim;
-    bool public disableClaim;
     EnumerableSet.AddressSet private tokenList;
 
     constructor(address _vault) BaseStrategy(_vault) public {
@@ -71,9 +67,6 @@ contract Strategy is BaseStrategy {
         if (_debtOutstanding > 0) {
             (_debtPayment, ) = liquidatePosition(_debtOutstanding);
         }
-
-        // ignoreClaim is a toggle which allows us to bypass claim logic if it is reverting
-        if (!ignoreClaim) _claim();
 
         uint256 debt = vault.strategies(address(this)).totalDebt;
         uint256 assets = estimatedTotalAssets();
@@ -120,14 +113,9 @@ contract Strategy is BaseStrategy {
         uint256 debt = vault.strategies(address(this)).totalDebt;
         uint256 assets = estimatedTotalAssets();
 
-        if (!isBaseFeeAcceptable()) {
-            return false;
-        }
+        if (!isBaseFeeAcceptable()) return false;
 
-        if (
-            assets >= debt.add(profitThreshold) ||
-            IVoterProxy(proxy).claimable()            
-        ) return true;
+        if (assets >= debt.add(profitThreshold)) return true;
 
         return false;
     }
@@ -145,16 +133,6 @@ contract Strategy is BaseStrategy {
         return want.balanceOf(address(this));
     }
 
-    function claim() external {
-        require(!disableClaim, "disabledClaim");
-        _claim();
-    }
-
-    function _claim() internal {
-        // Hardcoding this strategy address for safety
-        IVoterProxy(proxy).claim(address(this));
-    }
-
     function isBaseFeeAcceptable() internal view returns (bool) {
         return
             IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
@@ -168,16 +146,6 @@ contract Strategy is BaseStrategy {
     // Common API used to update Yearn's StrategyProxy if needed in case of upgrades.
     function setProxy(address _proxy) external onlyGovernance {
         proxy = _proxy;
-    }
-
-    // @dev Set true to ignore 3CRV claim from proxy. This allows us to bypass a revert if necessary.
-    function setIgnoreClaim(bool _ignoreClaim) external onlyEmergencyAuthorized {
-        ignoreClaim = _ignoreClaim;
-    }
-
-    // @dev Toggle disable public claim
-    function setdisableClaim(bool _disableClaim) external onlyEmergencyAuthorized {
-        disableClaim = _disableClaim;
     }
 
     function setProfitThreshold(uint _profitThreshold) external onlyVaultManagers {
@@ -240,10 +208,6 @@ contract Strategy is BaseStrategy {
         }
         delete tokenList;
         tradeFactory = address(0);
-    }
-
-    function isOnTokenList(address _token) internal view returns (bool) {
-        return tokenList.contains(_token);
     }
 
     function getTokenList() public view returns (address[] memory _tokenList) {
