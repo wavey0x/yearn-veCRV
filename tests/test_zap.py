@@ -5,10 +5,12 @@ import time
 from eth_abi import encode
 from brownie.convert import to_bytes
 
+ETH = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+
 def test_zap_queries(zap, strategist, input_tokens, output_tokens, 
-             amount, user, chain, weth, ybal, st_ybal, 
-             lp_ybal, gov, bal, balweth, pool, balancer_vault,
-             using_tenderly
+        amount, user, chain, weth, ybal, st_ybal, 
+        lp_ybal, gov, bal, balweth, pool, balancer_vault,
+        using_tenderly
     ):
 
     amount_in = 1e16
@@ -16,9 +18,12 @@ def test_zap_queries(zap, strategist, input_tokens, output_tokens,
         for o in output_tokens:
             if i == o:
                 continue
-            input_token = Contract(i)
+            if i == ETH:
+                input_token = Contract('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2') # WETH
+            else:
+                input_token = Contract(i)
             output_token = Contract(o)
-            amount_out = zap.queryZapOutput.call(i, o, amount_in, True)
+            amount_out = zap.query_zap_output.call(i, o, amount_in, True)
 
             print(f'{input_token.symbol()} {amount_in/1e18} --->')
             print(f'{output_token.symbol()} {amount_out/1e18}\n')
@@ -37,14 +42,17 @@ def test_zap(zap, strategist, input_tokens, output_tokens,
     # supply_a_lot_of_liquidity(user, ybal, pool)
     
     for i in input_tokens:
-        input_token = Contract(i)
+        if i == ETH:
+            input_token = Contract('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2') # WETH
+        else:
+            input_token = Contract(i)
         grant_allowance(user, zap, i)
         for o in output_tokens:
             output_token = Contract(o)
-            user_input_token_balance_before = input_token.balanceOf(user)
+            user_input_token_balance_before = input_token.balanceOf(user) if i != ETH else web3.eth.getBalance(user.address)
             recipient_output_token_balance_before = output_token.balanceOf(recipient)
             _amount = 100e18
-            print(f'{_amount/1e18:,} {input_token.symbol()} --> {output_token.symbol()}')
+            print(f'{_amount/1e18:,} {input_token.symbol() if i != ETH else "ETH"} --> {output_token.symbol()}')
             print_state_of_pool(pool, pool.getPoolId(), balancer_vault)
             if i.lower() == o.lower():
                 if not using_tenderly:
@@ -75,6 +83,7 @@ def test_zap(zap, strategist, input_tokens, output_tokens,
             else:
                 _min_out, _mint = compute_inputs(zap, 0, 0)
             
+            params = {'amount':0} if i != ETH else {'amount':_amount}
             tx = zap.zap(
                 i,          # input token 
                 o,          # output token
@@ -82,9 +91,10 @@ def test_zap(zap, strategist, input_tokens, output_tokens,
                 _min_out,   # min out
                 recipient,  # recipient (optional)
                 _mint,      # mint (optional)
+                params,      #{'amount':_amount}
             )
 
-            user_input_token_balance_after = input_token.balanceOf(user)
+            user_input_token_balance_after = input_token.balanceOf(user) if i != ETH else web3.eth.getBalance(user.address)
             recipient_output_token_balance_after = output_token.balanceOf(recipient)
             net_output = recipient_output_token_balance_after - recipient_output_token_balance_before
             if using_tenderly:
@@ -141,11 +151,15 @@ def test_change_buffer(zap, user, gov, using_tenderly):
 
 def verify_zero_balances(zap, input_tokens, output_tokens):
     for t in input_tokens:
-        assert Contract(t).balanceOf(zap) == 0
+        bal = Contract(t).balanceOf(zap) if t != ETH else web3.eth.getBalance(zap.address)
+        assert bal == 0
     for t in output_tokens:
-        assert Contract(t).balanceOf(zap) == 0
+        bal = Contract(t).balanceOf(zap) if t != ETH else web3.eth.getBalance(zap.address)
+        assert bal == 0
 
 def grant_allowance(user, zap, i):
+    if i == ETH:
+        return
     token = Contract(i)
     token.approve(zap, 2**256-1, {'from': user})
 

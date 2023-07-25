@@ -1,6 +1,6 @@
-# @version 0.3.7
+# @version 0.3.9
 """
-@title yBAL Zap v1
+@title yBAL Zap v2
 @license GNU AGPLv3
 @author Yearn Finance
 @notice Zap into yBAL ecosystem positions in a single transaction
@@ -47,6 +47,9 @@ interface IVault:
     def withdraw(shares: uint256) -> uint256: nonpayable
     def pricePerShare() -> uint256: view
 
+interface IWeth:
+    def deposit(): payable
+
 interface IYBAL:
     def mint(amount: uint256, recipient: address = msg.sender) -> uint256: nonpayable
     
@@ -63,12 +66,13 @@ interface IQueryHelper:
 event UpdateMintBuffer:
     mint_buffer: uint256
 
-INPUT_TOKENS: public(immutable(address[3]))
+INPUT_TOKENS: public(immutable(address[4]))
 OUTPUT_TOKENS: public(immutable(address[3]))
 SWEEP_RECIPIENT: public(immutable(address))
 
 mint_buffer: public(uint256) # For use by front-end
 
+ETH: constant(address) =        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE # ETH magic number
 BALVAULT: constant(address) =   0xBA12222222228d8Ba445958a75a0704d566BF2C8 # BALANCER VAULT
 BAL: constant(address) =        0xba100000625a3754423978a60c9317c58a424e3D # BAL
 BALWETH: constant(address) =    0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56 # BALWETH
@@ -84,7 +88,7 @@ QUERY_HELPER: constant(address) =           0xE39B5e3B6D74016b2F6A9673D7d7493B6D
 @external
 @view
 def name() -> String[32]:
-    return 'yBAL Zap v1'
+    return 'yBAL Zap v2'
 
 @external
 def __init__():
@@ -99,10 +103,11 @@ def __init__():
     assert ERC20(YBAL).approve(STYBAL, max_value(uint256))
     assert ERC20(POOL_ADDRESS_YBAL).approve(LPYBAL, max_value(uint256))
     
-    INPUT_TOKENS = [BAL, WETH, BALWETH]
+    INPUT_TOKENS = [BAL, WETH, BALWETH, ETH]
     OUTPUT_TOKENS = [YBAL, STYBAL, LPYBAL]
     
 @external
+@payable
 def zap(
     _input_token: address,
     _output_token: address,
@@ -117,7 +122,7 @@ def zap(
         token within the yBAL ecosystem.
     @dev 
         When zapping between tokens that might incur slippage, it is recommended to supply a _min_out value > 0.
-    @param _input_token Address of any supported input token: BAL, WETH, BAL-WETH BPT, or any yBAL ecosystem token
+    @param _input_token Address of any supported input token: BAL, WETH, ETH, BAL-WETH BPT, or any yBAL ecosystem token
     @param _output_token Address of any support output token: yBAL, st-yBAL, lp-yBAL
     @param _amount_in Amount of input token to migrate
     @param _min_out The minimum amount of output token to receive - optimal value should be computed off-chain
@@ -130,12 +135,17 @@ def zap(
     assert _input_token in INPUT_TOKENS or _input_token in OUTPUT_TOKENS # dev: invalid input token
     assert _output_token in OUTPUT_TOKENS   # dev: invalid output token
     assert _input_token != _output_token    # dev: input and output are the same
-    assert ERC20(_input_token).transferFrom(msg.sender, self, _amount_in)
+    if _input_token == ETH:
+        assert msg.value == _amount_in
+        IWeth(WETH).deposit(value=msg.value)
+    else:
+        assert msg.value == 0
+        assert ERC20(_input_token).transferFrom(msg.sender, self, _amount_in)
 
     amount: uint256 = 0
 
     # STEP 1: Get to 80-20 if not already there
-    if _input_token in [WETH, BAL]:
+    if _input_token in [WETH, BAL, ETH]:
         _amounts: DynArray[uint256, 2] = [0, 0]
         if _input_token == BAL:
             _amounts[0] = _amount_in
@@ -181,7 +191,7 @@ def zap(
     return amount
 
 @external
-def queryZapOutput(
+def query_zap_output(
     _input_token: address,
     _output_token: address,
     _amount_in: uint256,
@@ -192,7 +202,7 @@ def queryZapOutput(
     @dev 
         This function should never be used within an actual transaction to set min_out for a zap. 
         It is designed for usage by front-end calls only.
-    @param _input_token Address of any supported input token: BAL, WETH, BAL-WETH BPT, or any yBAL ecosystem token
+    @param _input_token Address of any supported input token: BAL, WETH, ETH, BAL-WETH BPT, or any yBAL ecosystem token
     @param _output_token Address of any suppoprt output token: yBAL, st-yBAL, lp-yBAL
     @param _amount_in Amount of input token to migrate
     @param _mint Determines whether zap will mint or swap into YBAL - optimal value should be computed off-chain
@@ -207,7 +217,7 @@ def queryZapOutput(
 
     amount: uint256 = 0
 
-    if _input_token in [WETH, BAL]:
+    if _input_token in [WETH, BAL, ETH]:
         _amounts: DynArray[uint256, 2] = [0, 0]
         if _input_token == BAL:
             _amounts[0] = _amount_in
