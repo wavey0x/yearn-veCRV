@@ -130,16 +130,16 @@ def zap(
     @param _mint Determines whether zap will mint or swap into YBAL - optimal value should be computed off-chain
     @return Amount of output token transferred to the _recipient
     """
-    assert _recipient != empty(address)
-    assert _amount_in > 0   # dev: amount is zero
-    assert _input_token in INPUT_TOKENS or _input_token in OUTPUT_TOKENS # dev: invalid input token
-    assert _output_token in OUTPUT_TOKENS   # dev: invalid output token
-    assert _input_token != _output_token    # dev: input and output are the same
+    assert _recipient != empty(address), "invalid recipient"
+    assert _amount_in > 0, "amount is zero"
+    assert _input_token in INPUT_TOKENS or _input_token in OUTPUT_TOKENS, "invalid input token"
+    assert _output_token in OUTPUT_TOKENS, "invalid output token"
+    assert _input_token != _output_token, "input and output are the same"
     if _input_token == ETH:
-        assert msg.value == _amount_in
+        assert msg.value == _amount_in, "value/amount mismatch"
         IWeth(WETH).deposit(value=msg.value)
     else:
-        assert msg.value == 0
+        assert msg.value == 0, "value disallowed"
         assert ERC20(_input_token).transferFrom(msg.sender, self, _amount_in)
 
     amount: uint256 = 0
@@ -174,7 +174,7 @@ def zap(
         elif _input_token == STYBAL:
             amount = IVault(STYBAL).withdraw(_amount_in)
         else:
-            assert _input_token == LPYBAL # dev: unable to match input token
+            assert _input_token == LPYBAL, "unable to match input token"
             amount = IVault(LPYBAL).withdraw(_amount_in)
             amount = self._exit_lp(amount, False)
 
@@ -187,7 +187,7 @@ def zap(
         amount = self._lp_balybal([0, amount], False)
         amount = IVault(LPYBAL).deposit(amount, _recipient)
     
-    assert amount >= _min_out # dev: received too few
+    assert amount >= _min_out, "received too few"
     return amount
 
 @external
@@ -238,7 +238,7 @@ def query_zap_output(
         elif _input_token == STYBAL:
             amount = _amount_in * IVault(STYBAL).pricePerShare() / 10 ** 18
         else:
-            assert _input_token == LPYBAL # dev: unable to match input token
+            assert _input_token == LPYBAL, "unable to match input token"
             amount = _amount_in * IVault(LPYBAL).pricePerShare() / 10 ** 18
             amount = self._exit_lp(amount, True)
 
@@ -393,7 +393,7 @@ def _exit_lp(_amount: uint256, _query: bool) -> uint256:
 
 @external
 def sweep(_token: address, _amount: uint256 = max_value(uint256)):
-    assert msg.sender == SWEEP_RECIPIENT
+    assert msg.sender == SWEEP_RECIPIENT, "!authorized"
     value: uint256 = _amount
     if value == max_value(uint256):
         value = ERC20(_token).balanceOf(self)
@@ -410,7 +410,7 @@ def set_mint_buffer(_new_buffer: uint256):
         As a convenience, we also use this value as slippage protection during swaps.
     @param _new_buffer New percentage (expressed in BPS) to nudge zaps towards minting
     """
-    assert msg.sender == SWEEP_RECIPIENT
-    assert _new_buffer < 500 # dev: buffer too high
+    assert msg.sender == SWEEP_RECIPIENT, "!authorized"
+    assert _new_buffer < 500, "buffer too high"
     self.mint_buffer = _new_buffer
     log UpdateMintBuffer(_new_buffer)
