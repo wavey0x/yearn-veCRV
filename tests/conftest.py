@@ -45,7 +45,7 @@ def user(accounts, yveCrv, yvboost, ycrv, crv, whale_yvecrv, whale_crv, lp_ycrv_
     yvboost.transfer(accounts[0], amount,{'from':whale_yvboost})
     lp_ycrv_v1.transfer(accounts[0], amount,{'from':lp_v1_whale})
     crv.approve(ycrv, 2**256-1,{'from':user})
-    ycrv.mint(16_000e18,{'from':user})
+    # ycrv.mint(16_000e18,{'from':user})
     # lp_ycrv.transfer(accounts[0], amount,{'from':lp_v1_whale})
     yield user
 
@@ -236,8 +236,8 @@ def new_proxy(strategy, yveCrv, strategist, gov, voter):
     p.setFeeRecipient(strategy, {"from": gov})
     voter.setStrategy(p, {"from": gov})
     strategy.setProxy(p, {"from": gov})
-    yveCrv.setProxy(p, {"from": gov})
-    yveCrv.setFeeDistribution(ZERO_ADDRESS, {"from": gov})
+    # yveCrv.setProxy(p, {"from": gov})
+    # yveCrv.setFeeDistribution(ZERO_ADDRESS, {"from": gov})
     yield p
 
 @pytest.fixture

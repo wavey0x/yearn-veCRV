@@ -372,6 +372,30 @@ contract StrategyProxy {
         }
     }
 
+    /// @notice Cast a DAO vote
+    /// @dev Admin fees become available every Thursday, so we run this expensive
+    ///  logic only once per week. May only be called by feeRecipient.
+    /// @param _target The address of the DAO contract
+    function dao_vote(address _target, uint _voteId, bool _support) external returns (uint amount){
+        require(
+            voters[msg.sender]||
+            msg.sender == governance,
+            "!approved" 
+        );
+        require(
+            _target == 0xE478de485ad2fe566d49342Cbd03E49ed7DB3356 ||
+            _target == 0xBCfF8B0b9419b9A88c44546519b1e909cF330399,
+            "invalid dao contract"
+        );
+        bytes memory data = abi.encodeWithSignature(
+            "vote(uint256,bool,bool)", 
+            _voteId,
+            _support,
+            false
+        );
+        proxy.safeExecute(_target, 0, data);
+    }
+
     /// @notice Check if it has been one week since last admin fee claim.
     function claimable() public view returns (bool) {
         /// @dev add 1 day buffer since fees come available mid-day
