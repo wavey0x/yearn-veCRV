@@ -40,8 +40,6 @@ def test_proxy_dao_vote(accounts, live_strat, voter, token, new_proxy, gov, user
         {'from': gov}
     )
 
-    assert False
-
 def test_proxy(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vault, fee_distributor, 
     strategy, strategist, amount, user, crv3, chain, whale_3crv, gov):
     WEEK = 60 * 60 * 24 * 7
