@@ -373,9 +373,10 @@ contract StrategyProxy {
     }
 
     /// @notice Cast a DAO vote
-    /// @dev Admin fees become available every Thursday, so we run this expensive
-    ///  logic only once per week. May only be called by feeRecipient.
+    /// @dev Allows for casting a vote in either the admin or parameter DAO.
     /// @param _target The address of the DAO contract
+    /// @param _voteId Vote identifier
+    /// @param _support true/false
     function dao_vote(address _target, uint _voteId, bool _support) external returns (uint amount){
         require(
             voters[msg.sender]||
