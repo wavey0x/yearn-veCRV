@@ -1,6 +1,44 @@
 import math, time, brownie
-from brownie import Contract, web3, StrategyProxy, ZERO_ADDRESS
+from brownie import Contract, web3, StrategyProxy, ZERO_ADDRESS, chain
 
+
+def test_proxy_dao_vote(accounts, live_strat, voter, token, new_proxy, gov, user, vault, fee_distributor):
+    VOTING_CONTRACTS = {
+        "dao": "0xE478de485ad2fe566d49342Cbd03E49ed7DB3356",
+        "param": "0xBCfF8B0b9419b9A88c44546519b1e909cF330399",
+    }
+    target = Contract(VOTING_CONTRACTS['dao'])
+    vote_id = 498
+    amigos = '0x4444AAAACDBa5580282365e25b16309Bd770ce4a'
+    new_proxy.approveVoter(amigos, {'from': gov})
+    
+    assert target.canVote(vote_id, voter)
+
+    with brownie.reverts():
+        new_proxy.dao_vote(
+            VOTING_CONTRACTS['dao'],     #
+            vote_id,    #
+            True,
+            {'from': user}
+        )
+    before_state = target.getVote(vote_id)
+    new_proxy.dao_vote(
+        VOTING_CONTRACTS['dao'],     #
+        vote_id,    #
+        True,
+        {'from': amigos}
+    )
+
+    after_state = target.getVote(vote_id)
+    assert before_state['yea'] < after_state['yea']
+
+    chain.undo()
+    new_proxy.dao_vote(
+        VOTING_CONTRACTS['dao'],     #
+        vote_id,    #
+        True,
+        {'from': gov}
+    )
 
 def test_proxy(accounts, live_strat, voter, token, new_proxy, whale_yvecrv, vault, fee_distributor, 
     strategy, strategist, amount, user, crv3, chain, whale_3crv, gov):

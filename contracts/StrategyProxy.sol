@@ -105,7 +105,6 @@ contract StrategyProxy {
     event VoterRevoked(address indexed voter);
     event LockerApproved(address indexed locker);
     event LockerRevoked(address indexed locker);
-    event AdminFeesClaimed(address indexed recipient, uint256 amount);
     event ExtraTokenRecipientApproved(address indexed token, address indexed recipient);
     event ExtraTokenRecipientRevoked(address indexed token, address indexed recipient);
     event RewardTokenApproved(address indexed token, bool approved);
@@ -360,19 +359,41 @@ contract StrategyProxy {
     /// @dev Admin fees become available every Thursday, so we run this expensive
     ///  logic only once per week. May only be called by feeRecipient.
     /// @param _recipient The address to which we transfer 3CRV.
-    function claim(address _recipient) external {
+    function claim(address _recipient) external returns (uint amount){
         require(msg.sender == feeRecipient, "!approved");
-        if (!claimable()) return;
-
+        if (!claimable()) return 0;
         address p = address(proxy);
         feeDistribution.claim_many([p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p, p]);
         lastTimeCursor = feeDistribution.time_cursor_of(address(proxy));
 
-        uint256 amount = IERC20(CRV3).balanceOf(address(proxy));
+        amount = IERC20(CRV3).balanceOf(address(proxy));
         if (amount > 0) {
             proxy.safeExecute(CRV3, 0, abi.encodeWithSignature("transfer(address,uint256)", _recipient, amount));
-            emit AdminFeesClaimed(_recipient, amount);
         }
+    }
+
+    /// @notice Cast a DAO vote
+    /// @dev Admin fees become available every Thursday, so we run this expensive
+    ///  logic only once per week. May only be called by feeRecipient.
+    /// @param _target The address of the DAO contract
+    function dao_vote(address _target, uint _voteId, bool _support) external returns (uint amount){
+        require(
+            voters[msg.sender]||
+            msg.sender == governance,
+            "!approved" 
+        );
+        require(
+            _target == 0xE478de485ad2fe566d49342Cbd03E49ed7DB3356 ||
+            _target == 0xBCfF8B0b9419b9A88c44546519b1e909cF330399,
+            "invalid dao contract"
+        );
+        bytes memory data = abi.encodeWithSignature(
+            "vote(uint256,bool,bool)", 
+            _voteId,
+            _support,
+            false
+        );
+        proxy.safeExecute(_target, 0, data);
     }
 
     /// @notice Check if it has been one week since last admin fee claim.
@@ -429,7 +450,7 @@ contract StrategyProxy {
     }
 
     // make sure a strategy can't yoink gauge or LP tokens.
-    function _isSafeToken(address _token) internal returns (bool) {
+    function _isSafeToken(address _token) internal view returns (bool) {
         if (_token == crv) return false;
         try gaugeController.gauge_types(_token) {
             return false;

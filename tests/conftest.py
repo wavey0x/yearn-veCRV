@@ -21,7 +21,6 @@ def isolation(fn_isolation):
 @pytest.fixture
 def gov(accounts):
     yield accounts.at("0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52", force=True)
-    #yield accounts.at("0x6AFB7c9a6E8F34a3E0eC6b734942a5589A84F44C", force=True)
 
 @pytest.fixture
 def yvboost():
@@ -33,14 +32,22 @@ def yveCrv():
 
 @pytest.fixture
 def whale_yvboost(accounts):
-    yield accounts.at("0x25431341A5800759268a6aC1d3CD91C029D7d9CA", force=True)
+    yield accounts.at("0x9461173740D27311b176476FA27e94C681b1Ea6b", force=True)
 
 @pytest.fixture
-def user(accounts, yveCrv, yvboost, crv, whale_yvecrv, whale_crv, whale_yvboost, cvxcrv, whale_cvxcrv):
-    crv.transfer(accounts[0], 500e18,{'from':whale_crv})
-    yveCrv.transfer(accounts[0], 1_000e18,{'from':whale_yvecrv})
-    cvxcrv.transfer(accounts[0], 1_000e18,{'from':whale_cvxcrv})
-    yield accounts[0]
+def user(accounts, yveCrv, yvboost, ycrv, crv, whale_yvecrv, whale_crv, lp_ycrv_v1, lp_ycrv, whale_yvboost, cvxcrv, whale_cvxcrv):
+    user = accounts[0]
+    lp_v1_whale = accounts.at('0x7d2aB9CA511EBD6F03971Fb417d3492aA82513f0', force=True)
+    amount = 60_000e18
+    crv.transfer(accounts[0], amount,{'from':whale_crv})
+    yveCrv.transfer(accounts[0], amount,{'from':whale_yvecrv})
+    cvxcrv.transfer(accounts[0], amount,{'from':whale_cvxcrv})
+    yvboost.transfer(accounts[0], amount,{'from':whale_yvboost})
+    lp_ycrv_v1.transfer(accounts[0], amount,{'from':lp_v1_whale})
+    crv.approve(ycrv, 2**256-1,{'from':user})
+    # ycrv.mint(16_000e18,{'from':user})
+    # lp_ycrv.transfer(accounts[0], amount,{'from':lp_v1_whale})
+    yield user
 
 @pytest.fixture
 def rewards(accounts):
@@ -131,7 +138,6 @@ def live_strat():
 
 @pytest.fixture
 def ycrv(strategist):
-    # yield strategist.deploy(yCRV)
     yield Contract('0xFCc5c47bE19d06BF83eB04298b026F81069ff65b')
 
 @pytest.fixture
@@ -140,60 +146,34 @@ def vault_abi():
 
 @pytest.fixture
 def st_ycrv(strategist, ycrv, gov, yveCrv,vault_abi, user):
-    # registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
-    # address = registry.newVault(ycrv,gov,gov,"Staked YCRV","st-YCRV",{'from':gov}).return_value
-    # v = Contract.from_abi("pool", address, vault_abi)
-    # v.setDepositLimit(100e25, {'from':gov})
-    # ycrv.approve(v, 2**256-1, {'from':user})
-    # yveCrv.approve(ycrv, 2**256-1, {'from':user})
-    # ycrv.burn_to_mint(101e18, {'from':user})
-    # v.deposit(100e18,{'from':user})
-    # ycrv.transfer(v, 1e18,{'from':user}) # Increase pps a bit
     yield Contract('0x27B5739e22ad9033bcBf192059122d163b60349D')
 
 @pytest.fixture
-def pool(strategist, gov, ycrv, yveCrv, vault_abi, crv, user):
-    factory = Contract('0xb9fc157394af804a3578134a6585c0dc9cc990d4', owner=strategist)
-    name = 'Yearn CRV'
-    symbol = 'yCRV'
-    coins = [
-        '0xD533a949740bb3306d119CC777fa900bA034cd52',
-        ycrv.address,
-        ZERO_ADDRESS,
-        ZERO_ADDRESS
-    ]
-    a = 50
-    fee = 15000000
-    asset_type = 3
-    implementation_index = 3
-    pool_address = factory.deploy_plain_pool(
-        name, 
-        symbol, 
-        coins, 
-        a, 
-        fee, 
-        asset_type, 
-        implementation_index
-    ).return_value
-    pool = Contract.from_abi("pool", pool_address, Contract("0x7E46fd8a30869aa9ed55af031067Df666EfE87da").abi)
-    yveCrv.approve(ycrv,2**256-1, {'from':user})
-    ycrv.approve(pool, 2**256-1, {'from':user})
-    crv.approve(pool, 2**256-1, {'from':user})
-    ycrv.burn_to_mint(yveCrv.balanceOf(user)/2, {'from':user})
-    amounts = [105e18, 209e18]
-    pool.add_liquidity(amounts, chain.time(),{'from': user})
+def pool():
+    yield Contract('0x99f5aCc8EC2Da2BC0771c32814EFF52b712de1E5')
+
+@pytest.fixture
+def lp_ycrv():
+    yield Contract('0x6E9455D109202b426169F0d8f01A3332DAE160f3')
+
+@pytest.fixture
+def pool_v1(accounts):
+    whale = accounts.at('0x5980d25B4947594c26255C0BF301193ab64ba803',force=True)
+    pool = Contract('0x453D92C7d4263201C69aACfaf589Ed14202d83a4',owner=whale)
+    pool.transfer(accounts[0], 10_000e18)
     yield pool
 
 @pytest.fixture
-def lp_ycrv(gov, pool, ycrv, user, vault_abi):
-    # registry = Contract(web3.ens.resolve("v2.registry.ychad.eth"))
-    # tx = registry.newVault(pool,gov,gov,"LP YCRV","lp-YCRV",{'from':gov})
-    # vault_address = tx.events['NewVault']['vault']
-    # v = Contract.from_abi("vault", vault_address, vault_abi)
-    # v.setDepositLimit(100e25, {'from':gov})
-    # pool.approve(v, 2**256-1,{'from':user})
-    # v.deposit({'from':user})
-    # ycrv.transfer(v, 1e17,{'from':user}) # Increase pps a bit
+def pool_v2(accounts, user):
+    pool = Contract('0x99f5aCc8EC2Da2BC0771c32814EFF52b712de1E5',owner=user)
+    # Mint some LPs
+    Contract(pool.coins(0),owner=user).approve(pool,2**256-1)
+    Contract(pool.coins(1),owner=user).approve(pool,2**256-1)
+    pool.add_liquidity([15_000e18,15_000e18],0)
+    yield pool
+
+@pytest.fixture
+def lp_ycrv_v1():
     yield Contract('0xc97232527B62eFb0D8ed38CF3EA103A6CcA4037e')
 
 @pytest.fixture
@@ -256,8 +236,8 @@ def new_proxy(strategy, yveCrv, strategist, gov, voter):
     p.setFeeRecipient(strategy, {"from": gov})
     voter.setStrategy(p, {"from": gov})
     strategy.setProxy(p, {"from": gov})
-    yveCrv.setProxy(p, {"from": gov})
-    yveCrv.setFeeDistribution(ZERO_ADDRESS, {"from": gov})
+    # yveCrv.setProxy(p, {"from": gov})
+    # yveCrv.setFeeDistribution(ZERO_ADDRESS, {"from": gov})
     yield p
 
 @pytest.fixture
@@ -293,22 +273,6 @@ def sushiswap_crv(accounts):
 @pytest.fixture
 def sushiswap(Contract):
     yield Contract("0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
-
-# @pytest.fixture
-# def pool(accounts, crv, yveCrv, user):
-#     pool = Contract("0x7E46fd8a30869aa9ed55af031067Df666EfE87da")
-#     yveCrv.approve(pool, 2**256-1, {'from':user})
-#     crv.approve(pool, 2**256-1, {'from':user})
-#     # pool.add_liquidity([100e18,100e18], 0, user, {'from':user})
-#     yield pool
-
-@pytest.fixture
-def not_banteg(accounts):
-    yield accounts.at("0x0035Fc5208eF989c28d47e552E92b0C507D2B318", force=True)
-
-@pytest.fixture
-def klim(accounts):
-    yield accounts.at("0x279a7DBFaE376427FFac52fcb0883147D42165FF", force=True) # airdropper
 
 @pytest.fixture
 def weth_amount(accounts, weth, gov):
