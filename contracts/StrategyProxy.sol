@@ -379,9 +379,9 @@ contract StrategyProxy {
     /// @param _support true/false
     function dao_vote(address _target, uint _voteId, bool _support) external returns (uint amount){
         require(
-            voters[msg.sender]||
+            voters[msg.sender] ||
             msg.sender == governance,
-            "!approved" 
+            "!voter" 
         );
         require(
             _target == 0xE478de485ad2fe566d49342Cbd03E49ed7DB3356 ||
